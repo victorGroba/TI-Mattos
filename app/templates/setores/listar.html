@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Setores - HelpDesk{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Setores</h2>
+        <a href="{{ url_for('setores.novo_setor') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Novo Setor
+        </a>
+    </div>
+
+    <table class="table table-bordered table-hover bg-white">
+        <thead class="table-light">
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in setores %}
+            <tr>
+                <td>{{ s.id }}</td>
+                <td>{{ s.nome }}</td>
+                <td>{{ s.email }}</td>
+                <td>
+                    <a href="{{ url_for('setores.editar_setor', id=s.id) }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

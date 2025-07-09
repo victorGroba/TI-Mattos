@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h3 class="mb-4">Chamado #{{ ticket.id }} - {{ ticket.titulo }}</h3>
+
+    <div class="mb-3">
+        <p><strong>Prioridade:</strong> {{ ticket.prioridade }}</p>
+        <p><strong>Status:</strong> 
+            <span class="badge bg-{{ 'success' if ticket.status == 'Concluído' else 'primary' }}">{{ ticket.status }}</span>
+        </p>
+        <p><strong>Categoria:</strong> {{ ticket.categoria.nome }}</p>
+        <p><strong>Descrição:</strong><br>{{ ticket.descricao }}</p>
+    </div>
+
+    <hr>
+    <h5>Respostas:</h5>
+    {% if ticket.respostas %}
+        <ul class="list-group mb-4">
+            {% for r in ticket.respostas %}
+            <li class="list-group-item">
+                <p class="mb-1"><strong>{{ r.respondente.nome }}</strong> <small class="text-muted">em {{ r.data_resposta.strftime('%d/%m/%Y %H:%M') }}</small></p>
+                <p class="mb-0">{{ r.conteudo }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="alert alert-info">Nenhuma resposta ainda.</div>
+    {% endif %}
+
+    {% if ticket.status != 'Concluído' %}
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+            <label for="conteudo" class="form-label">Responder:</label>
+            <textarea name="conteudo" class="form-control" rows="3" required></textarea>
+        </div>
+
+        {% if current_user.tipo == 'admin' %}
+        <div class="mb-3">
+            <label for="status" class="form-label">Alterar Status:</label>
+            <select name="status" class="form-select">
+                <option value="Em andamento" {% if ticket.status == 'Em andamento' %}selected{% endif %}>Em andamento</option>
+                <option value="Concluído" {% if ticket.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                <option value="Arquivado" {% if ticket.status == 'Arquivado' %}selected{% endif %}>Arquivado</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">Enviar Resposta</button>
+    </form>
+    {% else %}
+    <div class="alert alert-warning mt-4">Este chamado está concluído e não pode mais receber respostas.</div>
+    {% endif %}
+
+    <a href="{{ url_for('tickets.meus_chamados') if current_user.tipo != 'admin' else url_for('tickets.listar_chamados') }}" class="btn btn-secondary mt-3">
+        Voltar
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Usuários - HelpDesk{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Usuários</h2>
+        <a href="{{ url_for('usuarios.novo_usuario') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Novo Usuário
+        </a>
+    </div>
+
+    <table class="table table-bordered table-hover bg-white">
+        <thead class="table-light">
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Tipo</th>
+                <th>Setor</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.nome }}</td>
+                <td>{{ u.email }}</td>
+                <td>{{ u.tipo }}</td>
+                <td>{{ u.setor.nome if u.setor else '---' }}</td>
+                <td>
+                    <a href="{{ url_for('usuarios.editar_usuario', id=u.id) }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Novo Setor - HelpDesk{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Novo Setor</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.nome.label(class="form-label") }}
+            {{ form.nome(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control") }}
+        </div>
+        <button type="submit" class="btn btn-success">Salvar</button>
+        <a href="{{ url_for('setores.listar_setores') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

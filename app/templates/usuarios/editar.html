@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Editar Usuário - HelpDesk{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Editar Usuário</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.nome.label(class="form-label") }}
+            {{ form.nome(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            {{ form.senha.label(class="form-label") }}
+            {{ form.senha(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            {{ form.tipo.label(class="form-label") }}
+            {{ form.tipo(class="form-select") }}
+        </div>
+        <div class="mb-3">
+            {{ form.setor_id.label(class="form-label") }}
+            {{ form.setor_id(class="form-select") }}
+        </div>
+        <button type="submit" class="btn btn-primary">Atualizar</button>
+        <a href="{{ url_for('usuarios.listar_usuarios') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
