@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}HelpDesk - Groba Tech{% endblock %}</title>
+    <title>{% block title %}Lab Mattos HelpDesk {% endblock %}</title>
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.ico') }}">
 
     <style>
         body {
@@ -112,7 +113,7 @@
     <!-- Rodapé -->
     <footer class="mt-auto">
         <div class="container">
-            <span class="text-muted">version: 1.3 HelpDesk LabMattos - © {{ now().year }} GrobaTech </span>
+            <span class="text-muted">version: 1.3 HelpDesk LabMattos - © {{ now().year }} GT </span>
         </div>
     </footer>
 

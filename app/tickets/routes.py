@@ -79,7 +79,7 @@ Mensagem:
 "{resposta.conteudo}"
 
 Para visualizar os detalhes e acompanhar o andamento do chamado, acesse:
-🔗 http://192.168.15.4:5000/chamado/{ticket.id}
+🔗 http://192.168.1.152:5000/chamado/{ticket.id}
 
 Atenciosamente,  
 Equipe de Suporte Técnico  
@@ -103,7 +103,7 @@ O chamado abaixo foi finalizado com status **Concluído**:
 👤 Finalizado por: {current_user.nome}
 
 Você pode consultar o histórico completo acessando:
-🔗 http://192.168.15.4:5000/chamado/{ticket.id}
+🔗 http://192.168.1.152:5000/chamado/{ticket.id}
 
 Caso precise reabrir o chamado ou tenha outras dúvidas, entre em contato com nossa equipe.
 
