@@ -19,13 +19,13 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///helpdesk.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # ⚙️ Configurações de e-mail (usando Gmail)
-    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = 'ti.mattos2025@gmail.com'
-    app.config['MAIL_PASSWORD'] = 'jcof xipu gulp ryqv'  # 🔐 Troque pela senha de app gerada no Gmail
-    app.config['MAIL_DEFAULT_SENDER'] = 'ti.mattos2025@gmail.com'
+   # ⚙️ Configurações de e-mail (usando o SMTP do domínio labmattos.com.br)
+    app.config['MAIL_SERVER'] = 'email-ssl.com.br'
+    app.config['MAIL_PORT'] = 465
+    app.config['MAIL_USE_SSL'] = True
+    app.config['MAIL_USERNAME'] = 'ti@labmattos.com.br'
+    app.config['MAIL_PASSWORD'] = 'Jvfg2409@'  # ✅ Coloque a senha real aqui
+    app.config['MAIL_DEFAULT_SENDER'] = 'ti@labmattos.com.br'
 
     # Inicializa extensões
     db.init_app(app)

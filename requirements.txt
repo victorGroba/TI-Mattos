@@ -3,6 +3,6 @@ Flask-SQLAlchemy
 Flask_migrate
 Flask-Login
 Flask_wtf
-email-validator
-python-dotenv
+email_validator
+python_dotenv
 flask_mail
