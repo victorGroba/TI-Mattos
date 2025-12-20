@@ -6,9 +6,8 @@ services:
     container_name: helpdesk_mattos
     restart: always
     ports:
-      - "5000:5000"
+      - "5001:5000"  # <--- AQUI: Porta 5001 externa -> 5000 interna
     volumes:
-      # Garante que o banco de dados (helpdesk.db) não seja perdido ao reiniciar
       - ./instance:/app/instance
     env_file:
       - .env
