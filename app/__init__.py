@@ -5,34 +5,41 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from flask_migrate import Migrate
-from flask_mail import Mail  # ⬅️ Importa o Flask-Mail
+from flask_mail import Mail
 
 db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 migrate = Migrate()
-mail = Mail()  # ⬅️ Instância global do Mail
+mail = Mail()
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'chave-secreta-grobatech'
+    
+    # SEGURANÇA: Busca a chave secreta do ambiente ou usa uma padrão apenas para dev
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-padrao-insegura-dev')
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///helpdesk.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-   # ⚙️ Configurações de e-mail (usando o SMTP do domínio labmattos.com.br)
+    # ⚙️ Configurações de e-mail (usando o SMTP do domínio labmattos.com.br)
     app.config['MAIL_SERVER'] = 'email-ssl.com.br'
     app.config['MAIL_PORT'] = 465
     app.config['MAIL_USE_SSL'] = True
-    app.config['MAIL_USERNAME'] = 'ti@labmattos.com.br'
-    app.config['MAIL_PASSWORD'] = 'Jvfg2409@'  # ✅ Coloque a senha real aqui
-    app.config['MAIL_DEFAULT_SENDER'] = 'ti@labmattos.com.br'
+    
+    # SEGURANÇA: As credenciais agora vêm do arquivo .env (variáveis de ambiente)
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    
+    # Se não houver remetente definido, usa o usuário do e-mail
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
     # Inicializa extensões
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
-    mail.init_app(app)  # ⬅️ Inicializa o Mail
+    mail.init_app(app)
 
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'warning'

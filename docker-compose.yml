@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: helpdesk_mattos
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      # Garante que o banco de dados (helpdesk.db) não seja perdido ao reiniciar
+      - ./instance:/app/instance
+    env_file:
+      - .env
