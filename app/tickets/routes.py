@@ -57,8 +57,8 @@ def visualizar_chamado(chamado_id):
             db.session.commit()
 
             # ✅ Lista de destinatários: criador + responsável da TI
-            destinatarios = ['ti.mattos2025@gmail.com']
-            if ticket.criador.email and ticket.criador.email != 'ti.mattos2025@gmail.com':
+            destinatarios = ['ti@labmattos.com.br']
+            if ticket.criador.email and ticket.criador.email != 'ti@labmattos.com.br':
                 destinatarios.append(ticket.criador.email)
 
             # 💬 E-mail de nova resposta

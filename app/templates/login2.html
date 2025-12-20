@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpDesk - Mattos & Mattos TI</title>
+    <meta name="description" content="Sistema HelpDesk profissional para gestão de suporte técnico">
+    <meta name="author" content="Mattos & Mattos TI">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Cores modernas - paleta azul profissional */
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #dbeafe;
+            --background-gradient: linear-gradient(135deg, #f8fafc, #e0f2fe);
+            --card-gradient: linear-gradient(145deg, #ffffff, #f8fafc);
+            --primary-gradient: linear-gradient(135deg, #2563eb, #3b82f6);
+            
+            /* Sombras modernas */
+            --shadow-sm: 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-glow: 0 0 30px rgba(37, 99, 235, 0.15);
+            
+            /* Transições suaves */
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--background-gradient);
+            min-height: 100vh;
+            margin: 0;
+            font-feature-settings: "rlig" 1, "calt" 1;
+        }
+
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 28rem;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Brand Section */
+        .brand-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 5rem;
+            height: 5rem;
+            background: var(--primary-gradient);
+            border-radius: 1.5rem;
+            box-shadow: var(--shadow-glow);
+            margin-bottom: 1.5rem;
+            transition: var(--transition-smooth);
+            color: white;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .brand-logo:hover {
+            transform: scale(1.05);
+        }
+
+        .brand-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        .brand-subtitle {
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        /* Login Card */
+        .login-card {
+            background: var(--card-gradient);
+            border-radius: 1rem;
+            box-shadow: var(--shadow-lg);
+            border: none;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: transparent;
+            border-bottom: none;
+            padding: 2rem 2rem 1rem;
+            text-align: center;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-subtitle {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .card-body {
+            padding: 1rem 2rem 2rem;
+        }
+
+        /* Form Styles */
+        .form-label {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            z-index: 3;
+        }
+
+        .form-control {
+            height: 2.75rem;
+            padding-left: 2.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background-color: #f9fafb;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background-color: #ffffff;
+        }
+
+        /* Button Styles */
+        .btn-primary-custom {
+            width: 100%;
+            height: 2.75rem;
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 500;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: var(--transition-smooth);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary-custom:hover:not(:disabled) {
+            background: var(--primary-hover);
+            box-shadow: var(--shadow-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary-custom:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-arrow {
+            transition: transform 0.2s ease;
+        }
+
+        .btn-primary-custom:hover .btn-arrow {
+            transform: translateX(4px);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+
+        /* Responsividade */
+        @media (max-width: 480px) {
+            .login-wrapper {
+                max-width: 20rem;
+            }
+            
+            .brand-logo {
+                width: 4rem;
+                height: 4rem;
+                font-size: 1.25rem;
+            }
+            
+            .brand-title {
+                font-size: 1.5rem;
+            }
+            
+            .card-body {
+                padding: 1rem 1.5rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-wrapper">
+            <!-- Brand Section -->
+            <div class="brand-section">
+                <div class="brand-logo">
+                    M&M
+                </div>
+                <h1 class="brand-title">Mattos & Mattos</h1>
+                <p class="brand-subtitle">TI • Sistema HelpDesk</p>
+            </div>
+
+            <!-- Login Card -->
+            <div class="card login-card">
+                <div class="card-header">
+                    <h2 class="card-title">Entrar no Sistema</h2>
+                    <p class="card-subtitle">Digite suas credenciais para acessar o HelpDesk</p>
+                </div>
+                <div class="card-body">
+                    <form id="loginForm">
+                        <!-- Email Field -->
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <div class="input-group">
+                                <i class="bi bi-envelope input-icon"></i>
+                                <input 
+                                    type="email" 
+                                    class="form-control" 
+                                    id="email" 
+                                    placeholder="seu@email.com"
+                                    required
+                                    autocomplete="email"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Password Field -->
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Senha</label>
+                            <div class="input-group">
+                                <i class="bi bi-lock input-icon"></i>
+                                <input 
+                                    type="password" 
+                                    class="form-control" 
+                                    id="password" 
+                                    placeholder="Digite sua senha"
+                                    required
+                                    autocomplete="current-password"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn btn-primary-custom" id="loginBtn">
+                            <span id="btnText">
+                                Entrar
+                                <i class="bi bi-arrow-right btn-arrow"></i>
+                            </span>
+                            <span id="btnLoading" style="display: none;">
+                                <div class="spinner"></div>
+                                Entrando...
+                            </span>
+                        </button>
+                    </form>
+
+                    <!-- Footer -->
+                    <div class="login-footer">
+                        <p>versão: 1.3 HelpDesk LabMattos - © 2025 GT</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('btnText');
+            const btnLoading = document.getElementById('btnLoading');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+
+            // Form submission
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                
+                // Validação básica
+                if (!email || !password) {
+                    showAlert('Por favor, preencha todos os campos.', 'warning');
+                    return;
+                }
+                
+                if (!isValidEmail(email)) {
+                    showAlert('Por favor, digite um email válido.', 'warning');
+                    return;
+                }
+                
+                // Iniciar loading
+                startLoading();
+                
+                // Simular processo de login (substitua pela sua lógica)
+                setTimeout(function() {
+                    stopLoading();
+                    
+                    // Aqui você faria a validação real com seu backend
+                    if (validateCredentials(email, password)) {
+                        showAlert('Login realizado com sucesso! Redirecionando...', 'success');
+                        
+                        // Redirecionar após sucesso (substitua pela sua URL)
+                        setTimeout(function() {
+                            window.location.href = '/dashboard.html'; // ou sua página principal
+                        }, 1500);
+                    } else {
+                        showAlert('Credenciais inválidas. Tente novamente.', 'danger');
+                    }
+                }, 2000);
+            });
+
+            // Função para iniciar loading
+            function startLoading() {
+                loginBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'flex';
+            }
+
+            // Função para parar loading
+            function stopLoading() {
+                loginBtn.disabled = false;
+                btnText.style.display = 'flex';
+                btnLoading.style.display = 'none';
+            }
+
+            // Validação de email
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+
+            // Função para validar credenciais (substitua pela sua lógica)
+            function validateCredentials(email, password) {
+                // EXEMPLO: Validação simples (REMOVA EM PRODUÇÃO)
+                // Substitua por chamada real ao seu backend/API
+                return email === 'admin@mattosemattos.com' && password === '123456';
+            }
+
+            // Função para mostrar alertas
+            function showAlert(message, type) {
+                // Remove alertas existentes
+                const existingAlerts = document.querySelectorAll('.alert');
+                existingAlerts.forEach(alert => alert.remove());
+                
+                // Cria novo alerta
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+                alertDiv.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                // Insere antes do formulário
+                loginForm.parentNode.insertBefore(alertDiv, loginForm);
+                
+                // Remove automaticamente após 5 segundos
+                setTimeout(function() {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
+
+            // Melhorar UX com foco automático
+            emailInput.focus();
+            
+            // Enter para navegar entre campos
+            emailInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    passwordInput.focus();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

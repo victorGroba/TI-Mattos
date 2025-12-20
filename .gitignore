@@ -1,0 +1,29 @@
+# --- Python & Venv (O Essencial) ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# --- Flask & Web ---
+instance/
+.webassets-cache
+
+# --- Variáveis de Ambiente e Senhas (MUITO IMPORTANTE) ---
+# Nunca suba arquivos com senhas ou chaves de API
+.env
+.env.local
+config_local.py
+
+# --- Bancos de Dados Locais ---
+*.sqlite3
+*.db
+
+# --- IDEs (Configurações do seu editor que não interessam ao time) ---
+.vscode/
+.idea/
+*.swp
