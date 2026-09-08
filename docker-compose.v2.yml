@@ -1,0 +1,109 @@
+# HelpDesk v2 — Next.js + Postgres.
+#
+# Sobe em paralelo ao sistema antigo (docker-compose.yml, porta 5001) durante o
+# período de transição: a v2 escuta em 5002. Depois do cutover, o Nginx passa a
+# apontar para 5002 e o compose antigo pode ser desligado.
+#
+# IMPORTANTE: use sempre --env-file .env.v2
+#
+#   docker compose -f docker-compose.v2.yml --env-file .env.v2 up -d --build
+#
+# O arquivo é .env.v2, e NÃO .env, porque o sistema antigo em Flask já usa o
+# .env desta mesma pasta (SECRET_KEY, MAIL_USERNAME, MAIL_PASSWORD).
+# Sobrescrevê-lo derrubaria a configuração do que está no ar.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: helpdesk_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-helpdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
+      # Locale pt_BR para ordenação de texto acentuado ficar correta.
+      LANG: pt_BR.UTF-8
+    volumes:
+      - helpdesk_pgdata:/var/lib/postgresql/data
+      # Destino dos dumps do backup diário (ver scripts/backup.sh).
+      - ./backups:/backups
+    # Sem `ports:` de propósito — o Postgres não fica exposto na internet.
+    # Para acessar de fora, use um túnel SSH.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-helpdesk} -d ${POSTGRES_DB:-helpdesk}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Serviço de execução única: aplica as migrations e o seed antes de o app
+  # subir. `service_completed_successfully` garante que o app nunca fale com um
+  # banco de schema desatualizado.
+  #
+  # ATENÇÃO À ORDEM NO PRIMEIRO DEPLOY. A importação dos dados do sistema
+  # antigo preserva os ids originais (setor 1, usuário 1...), então precisa
+  # rodar num banco em que esses ids ainda estejam livres:
+  #
+  #   1. docker compose -f docker-compose.v2.yml up -d db
+  #   2. docker compose -f docker-compose.v2.yml run --rm migrate npx prisma migrate deploy
+  #   3. docker compose -f docker-compose.v2.yml run --rm migrate \
+  #        npx tsx scripts/migrate-legacy.ts /legado/helpdesk.db
+  #   4. docker compose -f docker-compose.v2.yml up -d
+  #
+  # Inverter os passos 3 e 4 faz o seed ocupar o id 1 e a importação recusar o
+  # setor/usuário correspondente — o script aborta com a mensagem explicando,
+  # em vez de descartar o registro em silêncio.
+  migrate:
+    build:
+      context: ./apps/helpdesk
+      target: builder
+    container_name: helpdesk_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-helpdesk}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+    volumes:
+      # O banco SQLite do sistema antigo, para a importação única de usuários,
+      # setores e categorias. Fica fora da imagem (o contexto de build é
+      # apps/helpdesk), então precisa ser montado — em somente leitura, porque
+      # nada aqui deve escrever no banco que ainda está em produção.
+      - ./instance:/legado:ro
+    command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"
+
+  app:
+    build:
+      context: ./apps/helpdesk
+      target: runner
+    container_name: helpdesk_app_v2
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-helpdesk}
+      AUTH_SECRET: ${AUTH_SECRET:?defina AUTH_SECRET no .env}
+      AUTH_URL: ${APP_URL:-https://helpdesk.ti-labmattos.online}
+      APP_URL: ${APP_URL:-https://helpdesk.ti-labmattos.online}
+      SMTP_HOST: ${SMTP_HOST:-email-ssl.com.br}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - helpdesk_uploads:/app/uploads
+    ports:
+      # 5002 no host; o Nginx faz proxy para cá.
+      - "127.0.0.1:5002:3000"
+
+volumes:
+  helpdesk_pgdata:
+  helpdesk_uploads:

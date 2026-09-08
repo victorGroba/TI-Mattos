@@ -27,3 +27,8 @@ config_local.py
 .vscode/
 .idea/
 *.swp
+
+# --- Ambiente da v2 ---
+# O preenchido nunca; o exemplo sempre — é dele que sai o .env.v2 na VPS.
+.env.v2
+!.env.v2.example

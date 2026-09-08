@@ -1,0 +1,246 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Sistema de design — HelpDesk Lab Mattos
+   Paleta derivada da marca: teal (#4A8791) sobre neutros de ardósia fria.
+   Todo token é definido no :root claro e redefinido no bloco escuro; nenhuma
+   cor existe só dentro de um dos dois.
+   ========================================================================== */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.625rem;
+
+  /* Superfícies, do fundo para a frente */
+  --background: #f4f6f7;
+  --surface: #ffffff;
+  --surface-muted: #eef1f2;
+  --overlay: #ffffff;
+
+  --foreground: #1b262b;
+  --muted-foreground: #5f7278;
+  --subtle-foreground: #82949c;
+
+  --border: #dfe5e7;
+  --border-strong: #c8d2d5;
+  --ring: #4a8791;
+
+  /* Marca */
+  --primary: #3a757f;
+  --primary-hover: #316670;
+  --primary-foreground: #ffffff;
+  --primary-subtle: #e6f0f2;
+  --primary-subtle-foreground: #2a5a63;
+
+  /* Semânticas — usadas por status, prioridade e saúde de SLA */
+  --success: #2f7d5b;
+  --success-subtle: #e3f3ea;
+  --warning: #a16207;
+  --warning-subtle: #fbf1dc;
+  --danger: #b4433c;
+  --danger-subtle: #fbe9e8;
+  --info: #3b6aa8;
+  --info-subtle: #e7eefa;
+  --neutral: #5f7278;
+  --neutral-subtle: #eaeef0;
+  --accent: #6d5aa8;
+  --accent-subtle: #ede9f8;
+
+  /* Séries de gráfico. Validadas com scripts/validate_palette.js contra a
+     superfície branca: separação CVD e contraste >= 3:1 nos dois modos.
+     Não trocar sem revalidar. */
+  --chart-1: #2a78d6; /* criados */
+  --chart-2: #008300; /* resolvidos */
+  --chart-grid: #e8ecee;
+
+  --shadow-card: 0 1px 2px rgb(16 34 40 / 0.05), 0 1px 3px rgb(16 34 40 / 0.04);
+  --shadow-raised: 0 4px 12px rgb(16 34 40 / 0.08), 0 1px 3px rgb(16 34 40 / 0.06);
+}
+
+/* Tema escuro em três escopos, sem nenhum JavaScript:
+   1. .dark  — escolha explícita do usuário, gravada em cookie e carimbada no
+      <html> pelo servidor. Vence tudo.
+   2. media query — preferência do sistema, para quem nunca usou o botão. O
+      :not(.light) deixa a escolha explícita por claro ganhar do sistema.
+   Fazer isso em CSS elimina o flash de tema errado sem script inline, que
+   com `beforeInteractive` só executaria depois da hidratação — tarde demais. */
+.dark {
+  --background: #12191c;
+  --surface: #192226;
+  --surface-muted: #1f2a2f;
+  --overlay: #1f2a2f;
+
+  --foreground: #e6ecee;
+  --muted-foreground: #93a5ac;
+  --subtle-foreground: #708389;
+
+  --border: #2a373d;
+  --border-strong: #3a4a51;
+  --ring: #62a8b4;
+
+  --primary: #64aab6;
+  --primary-hover: #79bbc6;
+  --primary-foreground: #0d1517;
+  --primary-subtle: #1d3238;
+  --primary-subtle-foreground: #9fd0d9;
+
+  --success: #6ec49a;
+  --success-subtle: #1a3329;
+  --warning: #e0b055;
+  --warning-subtle: #33291a;
+  --danger: #ef8a83;
+  --danger-subtle: #35211f;
+  --info: #85b0e8;
+  --info-subtle: #1c2939;
+  --neutral: #93a5ac;
+  --neutral-subtle: #232f34;
+  --accent: #a898e0;
+  --accent-subtle: #262238;
+
+  /* Passos escolhidos para a faixa de luminosidade escura, não um
+     espelhamento automático dos claros. */
+  --chart-1: #3987e5;
+  --chart-2: #008300;
+  --chart-grid: #26333a;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.2);
+  --shadow-raised: 0 4px 14px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #12191c;
+    --surface: #192226;
+    --surface-muted: #1f2a2f;
+    --overlay: #1f2a2f;
+
+    --foreground: #e6ecee;
+    --muted-foreground: #93a5ac;
+    --subtle-foreground: #708389;
+
+    --border: #2a373d;
+    --border-strong: #3a4a51;
+    --ring: #62a8b4;
+
+    --primary: #64aab6;
+    --primary-hover: #79bbc6;
+    --primary-foreground: #0d1517;
+    --primary-subtle: #1d3238;
+    --primary-subtle-foreground: #9fd0d9;
+
+    --success: #6ec49a;
+    --success-subtle: #1a3329;
+    --warning: #e0b055;
+    --warning-subtle: #33291a;
+    --danger: #ef8a83;
+    --danger-subtle: #35211f;
+    --info: #85b0e8;
+    --info-subtle: #1c2939;
+    --neutral: #93a5ac;
+    --neutral-subtle: #232f34;
+    --accent: #a898e0;
+    --accent-subtle: #262238;
+
+    /* Passos escolhidos para a faixa de luminosidade escura, não um
+       espelhamento automático dos claros. */
+    --chart-1: #3987e5;
+    --chart-2: #008300;
+    --chart-grid: #26333a;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.2);
+    --shadow-raised: 0 4px 14px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.3);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-overlay: var(--overlay);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-subtle-foreground: var(--primary-subtle-foreground);
+
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-neutral: var(--neutral);
+  --color-neutral-subtle: var(--neutral-subtle);
+  --color-accent: var(--accent);
+  --color-accent-subtle: var(--accent-subtle);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-grid: var(--chart-grid);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  /* Acompanha os mesmos três escopos: controla o desenho nativo de scrollbar,
+     campos de formulário e menus do navegador. */
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html:not(.light) {
+      color-scheme: dark;
+    }
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Números tabulares em métricas e tabelas: colunas de dígitos alinhadas
+     verticalmente, sem o serrilhado que a largura variável causa. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar discreta, para as listas longas de chamados não ficarem com uma
+     barra clara cortando o tema escuro. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}

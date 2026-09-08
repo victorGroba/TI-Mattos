@@ -1,0 +1,541 @@
+// HelpDesk Lab Mattos v2 — modelo de dados
+// Suporta dois fluxos no mesmo motor de tickets:
+//   1. Suporte técnico (incidentes, requisições)
+//   2. Demandas de projeto (mudanças, melhorias, tarefas)
+// Todo o histórico fica em TicketEvent + TicketStatusPeriod, que são a base
+// das métricas de tempo de entrega e SLA.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===================== ENUMS =====================
+
+// Dois níveis, de propósito. Papéis intermediários (gestor, atendente) só
+// fazem sentido quando times diferentes atendem filas diferentes; aqui o
+// suporte é centralizado, e cada nível a mais é uma regra a mais para errar.
+enum Role {
+  ADMIN // atende os chamados e configura o sistema
+  USER // abre e acompanha os próprios chamados
+}
+
+enum TicketType {
+  SUPPORT // requisição de suporte
+  INCIDENT // algo quebrado, impacto imediato
+  CHANGE_REQUEST // pedido de mudança em projeto
+  IMPROVEMENT // melhoria / evolução
+  TASK // tarefa interna planejada
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// O ciclo de vida é único para os dois fluxos. Os status WAITING_* param o
+// relógio de SLA (ver SlaPolicy.pauseOnWaiting).
+enum TicketStatus {
+  OPEN // criado, ainda sem triagem
+  TRIAGED // classificado e priorizado
+  IN_PROGRESS // alguém trabalhando
+  WAITING_REQUESTER // aguardando o solicitante
+  WAITING_THIRD_PARTY // aguardando fornecedor / terceiro
+  IN_REVIEW // entregue, em validação
+  RESOLVED // resolvido, aguardando fechamento
+  CLOSED // encerrado
+  CANCELLED // descartado
+}
+
+enum EventType {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  TYPE_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  TEAM_CHANGED
+  CATEGORY_CHANGED
+  PROJECT_CHANGED
+  DUE_DATE_CHANGED
+  COMMENT_ADDED
+  INTERNAL_NOTE_ADDED
+  ATTACHMENT_ADDED
+  FIRST_RESPONSE
+  REOPENED
+  SLA_RESPONSE_BREACHED
+  SLA_RESOLUTION_BREACHED
+  TIME_LOGGED
+  MERGED
+}
+
+enum TicketSource {
+  WEB
+  API
+  EMAIL
+  N8N
+  IMPORT
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  DONE
+  ARCHIVED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  ABANDONED
+}
+
+// ===================== PESSOAS E ESTRUTURA =====================
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  email       String? // caixa do setor, usada nas notificações
+  description String?
+  color       String? // usado nos badges da UI
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members    User[]
+  tickets    Ticket[]
+  categories Category[]
+  projects   Project[]
+
+  @@index([active])
+  @@map("teams")
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  name  String
+  email String @unique
+
+  // Aceita dois formatos: "scrypt:..." (legado Werkzeug, importado do Flask)
+  // e bcrypt para senhas novas. lib/password.ts resolve os dois e faz o
+  // upgrade transparente para bcrypt no primeiro login bem-sucedido.
+  passwordHash String
+
+  role      Role      @default(USER)
+  teamId    Int?
+  phone     String?
+  avatarUrl String?
+  active    Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  requestedTickets Ticket[]        @relation("TicketRequester")
+  assignedTickets  Ticket[]        @relation("TicketAssignee")
+  watching         TicketWatcher[]
+  comments         Comment[]
+  events           TicketEvent[]
+  timeEntries      TimeEntry[]
+  attachments      Attachment[]
+  notifications    Notification[]
+  ownedProjects    Project[]       @relation("ProjectOwner")
+  apiTokens        ApiToken[]
+
+  @@index([teamId])
+  @@index([role, active])
+  @@map("users")
+}
+
+// ===================== CLASSIFICAÇÃO =====================
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  // Setor que atende esta categoria por padrão — usado no roteamento automático.
+  teamId      Int?
+
+  defaultType TicketType @default(SUPPORT)
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  team    Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  tickets Ticket[]
+
+  @@index([active])
+  @@map("categories")
+}
+
+model Tag {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  color String?
+
+  tickets Ticket[] @relation("TicketTags")
+
+  @@map("tags")
+}
+
+model Project {
+  id          Int     @id @default(autoincrement())
+  name        String
+  // Prefixo curto usado na UI e nos relatórios, ex.: "QUALI", "PORTAL".
+  key         String  @unique
+  description String?
+
+  status   ProjectStatus @default(ACTIVE)
+  teamId   Int?
+  ownerId  Int?
+  startsAt DateTime?
+  dueAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  owner   User?    @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  tickets Ticket[]
+
+  @@index([status])
+  @@index([teamId])
+  @@map("projects")
+}
+
+// ===================== TICKET =====================
+
+model Ticket {
+  // Int autoincrement de propósito: é o número que as pessoas falam em voz
+  // alta ("o chamado 42") e mantém continuidade com o sistema antigo.
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String
+  type        TicketType   @default(SUPPORT)
+  status      TicketStatus @default(OPEN)
+  priority    Priority     @default(MEDIUM)
+
+  categoryId  Int?
+  teamId      Int
+  projectId   Int?
+  requesterId Int
+  assigneeId  Int?
+
+  source TicketSource @default(WEB)
+  // Rastreia a origem quando o ticket nasce fora da UI (id da mensagem de
+  // e-mail, execução do n8n, etc.) e evita duplicidade em reprocessamento.
+  externalRef String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ---- Campos de métrica (denormalizados de propósito) ----
+  // A verdade é TicketEvent/TicketStatusPeriod; estes campos existem para que
+  // dashboards e relatórios não precisem varrer o histórico a cada consulta.
+  // lib/metrics.ts é o único lugar que escreve neles.
+  firstResponseAt      DateTime? // primeira resposta pública de um atendente
+  firstResponseMinutes Int? // em horário útil, conforme a SlaPolicy
+  startedAt            DateTime? // primeira vez que entrou em IN_PROGRESS
+  resolvedAt           DateTime?
+  closedAt             DateTime?
+  resolutionMinutes    Int? // criação → resolução, em horário útil
+  workingMinutes       Int? // tempo sem contar os status WAITING_*
+  reopenCount          Int       @default(0)
+
+  // ---- SLA ----
+  slaPolicyId           Int?
+  responseDueAt         DateTime?
+  resolutionDueAt       DateTime?
+  slaResponseBreached   Boolean   @default(false)
+  slaResolutionBreached Boolean   @default(false)
+
+  // ---- Planejamento (usado principalmente nas demandas de projeto) ----
+  estimateMinutes Int?
+  dueAt           DateTime?
+
+  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  team      Team       @relation(fields: [teamId], references: [id])
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  requester User       @relation("TicketRequester", fields: [requesterId], references: [id])
+  assignee  User?      @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  slaPolicy SlaPolicy? @relation(fields: [slaPolicyId], references: [id], onDelete: SetNull)
+
+  tags          Tag[]                @relation("TicketTags")
+  comments      Comment[]
+  events        TicketEvent[]
+  statusPeriods TicketStatusPeriod[]
+  attachments   Attachment[]
+  timeEntries   TimeEntry[]
+  watchers      TicketWatcher[]
+  notifications Notification[]
+
+  // Índices desenhados para as telas reais: fila por setor/status, "meus
+  // chamados", carteira do atendente e varredura de SLA vencendo.
+  @@index([teamId, status, createdAt(sort: Desc)])
+  @@index([requesterId, createdAt(sort: Desc)])
+  @@index([assigneeId, status])
+  @@index([projectId, status])
+  @@index([status, resolutionDueAt])
+  @@index([type, createdAt(sort: Desc)])
+  @@map("tickets")
+}
+
+// Trilha de auditoria. Nada é apagado daqui — é a fonte de verdade de
+// "quem mudou o quê e quando", e o que alimenta o recálculo de métricas.
+model TicketEvent {
+  id        Int       @id @default(autoincrement())
+  ticketId  Int
+  actorId   Int? // nulo quando a ação vem do sistema (SLA, automação)
+  type      EventType
+  field     String?
+  fromValue String?
+  toValue   String?
+  metadata  Json?
+  createdAt DateTime  @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([type, createdAt])
+  @@map("ticket_events")
+}
+
+// Quanto tempo o ticket passou em cada status. Escrito na transição, o que
+// transforma "tempo médio em triagem" numa agregação simples em vez de uma
+// reconstrução do log de eventos.
+model TicketStatusPeriod {
+  id       Int          @id @default(autoincrement())
+  ticketId Int
+  status   TicketStatus
+  // Denormalizado para permitir cortar por atendente sem join no ticket,
+  // já que o responsável pode mudar ao longo do ciclo de vida.
+  assigneeId Int?
+
+  startedAt DateTime
+  endedAt   DateTime?
+  // Duração corrida e duração em horário útil. Nulas enquanto o período
+  // está aberto.
+  minutes         Int?
+  businessMinutes Int?
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, startedAt])
+  @@index([status, startedAt])
+  @@map("ticket_status_periods")
+}
+
+model Comment {
+  id       Int     @id @default(autoincrement())
+  ticketId Int
+  authorId Int?
+  body     String
+  // Nota interna: visível só para AGENT/MANAGER/ADMIN, nunca para o solicitante.
+  internal Boolean @default(false)
+
+  source    TicketSource @default(WEB)
+  createdAt DateTime     @default(now())
+  editedAt  DateTime?
+
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("comments")
+}
+
+model Attachment {
+  id           Int     @id @default(autoincrement())
+  ticketId     Int?
+  commentId    Int?
+  uploadedById Int?
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  // Caminho no volume de uploads. Trocar por chave de object storage é uma
+  // mudança só em lib/storage.ts.
+  storageKey   String
+
+  createdAt DateTime @default(now())
+
+  ticket     Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@map("attachments")
+}
+
+// Apontamento de horas — responde "quanto custou de fato entregar isso",
+// que é diferente do tempo de calendário medido pelo SLA.
+model TimeEntry {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  userId    Int
+  minutes   Int
+  note      String?
+  spentOn   DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([userId, spentOn])
+  @@map("time_entries")
+}
+
+model TicketWatcher {
+  ticketId Int
+  userId   Int
+  addedAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, userId])
+  @@map("ticket_watchers")
+}
+
+// ===================== SLA =====================
+
+model SlaPolicy {
+  id       Int         @id @default(autoincrement())
+  name     String
+  // Regra de aplicação: a política mais específica que casar com o ticket
+  // vence (ver lib/sla.ts). Nulo = curinga.
+  priority Priority?
+  type     TicketType?
+  teamId   Int?
+
+  responseMinutes   Int
+  resolutionMinutes Int
+
+  // Se true, o relógio conta só dentro de businessHours e para nos status
+  // WAITING_*. Demandas de projeto costumam usar false (prazo corrido).
+  businessHoursOnly Boolean @default(true)
+  pauseOnWaiting    Boolean @default(true)
+
+  // { "1": [["08:00","12:00"],["13:00","18:00"]], ... } com 1=segunda..7=domingo
+  businessHours Json
+  // ["2026-12-25", "2027-01-01"] — feriados no fuso de timezone
+  holidays      Json?
+  timezone      String  @default("America/Sao_Paulo")
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@index([active])
+  @@map("sla_policies")
+}
+
+// ===================== INTEGRAÇÕES (n8n) =====================
+
+// Token de entrada: permite que o n8n (ou qualquer sistema) abra e atualize
+// tickets via /api/v1. Só o hash é guardado; o valor aparece uma única vez.
+model ApiToken {
+  id     Int    @id @default(autoincrement())
+  name   String
+  // Primeiros caracteres do token, para o usuário identificá-lo na lista.
+  prefix String @unique
+
+  tokenHash   String    @unique
+  scopes      String[]  @default(["tickets:read", "tickets:write"])
+  createdById Int?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("api_tokens")
+}
+
+// Saída: cada evento assinado vira um POST para o n8n.
+model WebhookEndpoint {
+  id     Int    @id @default(autoincrement())
+  name   String
+  url    String
+  // Usado para assinar o corpo em HMAC-SHA256 no header X-Helpdesk-Signature,
+  // para o n8n confirmar que a chamada veio daqui.
+  secret String
+
+  events  String[] // ex.: ["ticket.created", "ticket.status_changed", "sla.breached"]
+  headers Json?
+  active  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_endpoints")
+}
+
+// Fila de entrega com retentativa. Guardar a tentativa no banco é o que
+// permite reenviar quando o n8n estiver fora do ar, sem perder evento.
+model WebhookDelivery {
+  id         Int                   @id @default(autoincrement())
+  endpointId Int
+  event      String
+  payload    Json
+  status     WebhookDeliveryStatus @default(PENDING)
+  attempts   Int                   @default(0)
+
+  responseStatus Int?
+  responseBody   String?
+  lastError      String?
+  nextRetryAt    DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime          @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([endpointId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+model Notification {
+  id       Int     @id @default(autoincrement())
+  userId   Int
+  ticketId Int?
+  type     String
+  title    String
+  body     String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// Configurações globais editáveis pela tela de admin, sem redeploy.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
