@@ -1,10 +1,15 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./prisma";
 import type { SessionUser } from "./rbac";
-import { PAGE_SIZE, buildTicketWhere, type TicketFilters } from "./ticket-where";
+import {
+  PAGE_SIZE,
+  buildTicketOrder,
+  buildTicketWhere,
+  type TicketFilters,
+} from "./ticket-where";
 
-export { PAGE_SIZE, buildTicketWhere };
-export type { TicketFilters };
+export { PAGE_SIZE, buildTicketOrder, buildTicketWhere };
+export * from "./ticket-where";
 
 // Consultas de listagem. Ficam separadas de tickets.ts (que só escreve) para
 // deixar claro qual código pode mudar estado e qual não pode.
@@ -37,9 +42,7 @@ export async function listTickets(user: SessionUser, filters: TicketFilters) {
     prisma.ticket.findMany({
       where,
       select: ticketListSelect,
-      // Urgentes primeiro, depois os mais recentes: é a ordem em que a fila
-      // deve ser atacada, não a ordem em que os chamados chegaram.
-      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+      orderBy: buildTicketOrder(filters.sort),
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),

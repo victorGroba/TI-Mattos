@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { Priority, TicketStatus, TicketType } from "@/generated/prisma/enums";
 import { activeStatuses } from "./labels";
+import { toZonedParts, zonedTimeToUtc } from "./business-hours";
 import { ticketVisibilityFilter, type SessionUser } from "./rbac";
 
 // Montagem pura do filtro de listagem. Fica separado de ticket-queries.ts, que
@@ -26,7 +27,104 @@ export interface TicketFilters {
   overdue?: boolean;
   /** Restringe a quem abriu — a tela "Meus chamados", mesmo para atendentes. */
   requesterOnly?: boolean;
+  sort?: TicketSort;
+  period?: TicketPeriod;
   page?: number;
+}
+
+// ---------- Período ----------
+
+export const TICKET_PERIODS = ["tudo", "hoje", "semana", "mes", "90dias"] as const;
+export type TicketPeriod = (typeof TICKET_PERIODS)[number];
+
+export const PERIOD_LABELS: Record<TicketPeriod, string> = {
+  tudo: "Todo o período",
+  hoje: "Hoje",
+  semana: "Esta semana",
+  mes: "Este mês",
+  "90dias": "Últimos 90 dias",
+};
+
+export function parsePeriod(value: string | undefined): TicketPeriod {
+  return TICKET_PERIODS.includes(value as TicketPeriod)
+    ? (value as TicketPeriod)
+    : "tudo";
+}
+
+const FUSO = "America/Sao_Paulo";
+
+/**
+ * Início do período, em UTC.
+ *
+ * "Hoje", "esta semana" e "este mês" são recortes de CALENDÁRIO, não janelas
+ * móveis: quem pergunta "quantos chamados hoje" quer desde a meia-noite, não
+ * as últimas 24 horas. E a meia-noite é a de São Paulo — o container roda em
+ * UTC, e usar o relógio dele jogaria as três primeiras horas de cada dia para
+ * o dia anterior.
+ *
+ * A semana começa na segunda, como no calendário brasileiro.
+ */
+export function periodStart(period: TicketPeriod, agora = new Date()): Date | null {
+  if (period === "tudo") return null;
+
+  const hoje = toZonedParts(agora, FUSO);
+  const meiaNoite = (diasAtras = 0) => {
+    const base = zonedTimeToUtc(hoje.year, hoje.month, hoje.day, 0, 0, FUSO);
+    return new Date(base.getTime() - diasAtras * 86_400_000);
+  };
+
+  switch (period) {
+    case "hoje":
+      return meiaNoite();
+    case "semana":
+      // isoWeekday: 1 = segunda. Na segunda o recorte é o próprio dia.
+      return meiaNoite(hoje.isoWeekday - 1);
+    case "mes":
+      return zonedTimeToUtc(hoje.year, hoje.month, 1, 0, 0, FUSO);
+    case "90dias":
+      return meiaNoite(90);
+    default:
+      return null;
+  }
+}
+
+/** Ordenações oferecidas na fila. */
+export const TICKET_SORTS = ["recentes", "antigos", "prioridade"] as const;
+export type TicketSort = (typeof TICKET_SORTS)[number];
+
+export const SORT_LABELS: Record<TicketSort, string> = {
+  recentes: "Mais recentes",
+  antigos: "Mais antigos",
+  prioridade: "Prioridade",
+};
+
+export function parseSort(value: string | undefined): TicketSort {
+  return TICKET_SORTS.includes(value as TicketSort) ? (value as TicketSort) : "recentes";
+}
+
+/**
+ * Ordem da fila. O padrão é o mais recente primeiro.
+ *
+ * Ordenar por prioridade por padrão parecia esperto e era nocivo: como todo
+ * chamado nasce com prioridade média e a triagem é que ajusta, o recém-chegado
+ * — justamente o que ninguém olhou ainda — ia parar embaixo de todos os
+ * antigos marcados como altos. O chamado novo sumia da vista.
+ *
+ * A prioridade continua disponível como ordenação escolhida, para responder
+ * "o que eu ataco agora", e permanece visível em toda linha pelo badge.
+ */
+export function buildTicketOrder(
+  sort: TicketSort = "recentes",
+): Prisma.TicketOrderByWithRelationInput[] {
+  switch (sort) {
+    case "antigos":
+      return [{ createdAt: "asc" }];
+    case "prioridade":
+      // O desempate por data mantém a ordem estável dentro de cada prioridade.
+      return [{ priority: "desc" }, { createdAt: "desc" }];
+    default:
+      return [{ createdAt: "desc" }];
+  }
 }
 
 /**
@@ -58,6 +156,9 @@ export function buildTicketWhere(
   if (filters.type) where.type = filters.type;
   if (filters.priority) where.priority = filters.priority;
   if (filters.categoryId) where.categoryId = filters.categoryId;
+
+  const desde = periodStart(filters.period ?? "tudo");
+  if (desde) where.createdAt = { gte: desde };
   if (filters.projectId) where.projectId = filters.projectId;
 
   if (filters.unassigned) where.assigneeId = null;

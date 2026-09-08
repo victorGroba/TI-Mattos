@@ -7,6 +7,7 @@ import type { Role } from "@/generated/prisma/enums";
 import { Avatar } from "@/components/ui/misc";
 import { roleLabels } from "@/lib/labels";
 import { logoutAction } from "@/app/(app)/actions";
+import { ThemeMenuItem } from "./theme-toggle";
 
 export function UserMenu({
   name,
@@ -55,6 +56,17 @@ export function UserMenu({
           </div>
 
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
+
+          <DropdownMenu.Item
+            asChild
+            onSelect={(e) => {
+              // Trocar o tema não deve fechar o menu: dá para conferir o
+              // resultado e voltar atrás sem reabrir.
+              e.preventDefault();
+            }}
+          >
+            <ThemeMenuItem />
+          </DropdownMenu.Item>
 
           <DropdownMenu.Item
             disabled={pending}

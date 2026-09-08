@@ -46,18 +46,40 @@ function getServerSnapshot(): boolean | null {
   return null;
 }
 
+/** Grava a escolha no DOM (efeito imediato) e no cookie (lido pelo servidor). */
+function aplicar(escuro: boolean): void {
+  const root = document.documentElement;
+  root.classList.toggle("dark", escuro);
+  root.classList.toggle("light", !escuro);
+  // SameSite=Lax: o cookie é só preferência visual, não precisa viajar em
+  // requisição de terceiro.
+  document.cookie = `${COOKIE}=${escuro ? "dark" : "light"}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+}
+
+/**
+ * Versão para dentro de um menu: linha com rótulo, em vez de botão de ícone.
+ * O tema é preferência de conta, então mora junto do nome — e devolve espaço
+ * ao rodapé da barra, que estava truncando o nome do usuário.
+ */
+export function ThemeMenuItem() {
+  const isDark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  return (
+    <button
+      type="button"
+      onClick={() => aplicar(!getSnapshot())}
+      className="flex w-full cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 text-[13px] text-muted-foreground outline-none transition-colors hover:bg-surface-muted hover:text-foreground"
+    >
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {isDark === null ? "Tema" : isDark ? "Tema claro" : "Tema escuro"}
+    </button>
+  );
+}
+
 export function ThemeToggle() {
   const isDark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  const toggle = useCallback(() => {
-    const next = !getSnapshot();
-    const root = document.documentElement;
-    root.classList.toggle("dark", next);
-    root.classList.toggle("light", !next);
-    // SameSite=Lax: o cookie é só preferência visual, não precisa viajar em
-    // requisição de terceiro.
-    document.cookie = `${COOKIE}=${next ? "dark" : "light"}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-  }, []);
+  const toggle = useCallback(() => aplicar(!getSnapshot()), []);
 
   const label = isDark ? "Usar tema claro" : "Usar tema escuro";
 

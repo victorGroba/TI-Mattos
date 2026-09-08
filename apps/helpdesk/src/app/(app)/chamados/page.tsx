@@ -11,6 +11,7 @@ import type { Priority, TicketStatus, TicketType } from "@/generated/prisma/enum
 import { priorityLabels, statusLabels, typeLabels } from "@/lib/labels";
 import { requireAdmin } from "@/lib/session";
 import { getFormOptions, listTickets } from "@/lib/ticket-queries";
+import { parsePeriod, parseSort } from "@/lib/ticket-where";
 
 export const metadata: Metadata = { title: "Chamados" };
 export const dynamic = "force-dynamic";
@@ -44,6 +45,8 @@ export default async function TicketsPage({
     assigneeId: responsavel && responsavel !== "ninguem" ? Number(responsavel) : undefined,
     overdue: params.atraso === "1",
     search: params.q,
+    sort: parseSort(params.ordem),
+    period: parsePeriod(params.periodo),
     page: Number(params.pagina) || 1,
   });
 

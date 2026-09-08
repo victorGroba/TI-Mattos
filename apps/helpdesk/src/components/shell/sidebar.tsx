@@ -177,11 +177,8 @@ export function Sidebar({
             vazio grande embaixo da navegação. */}
         <div className="flex shrink-0 items-center gap-0.5 border-t border-border px-2 py-2">
           <UserMenu id={user.id} name={user.name} email={user.email} role={user.role} />
-          <span className="ml-auto flex items-center">
+          <span className="ml-auto">
             <NotificationBell inicial={counts.unread} />
-            <span className="hidden lg:block">
-              <ThemeToggle />
-            </span>
           </span>
         </div>
       </aside>

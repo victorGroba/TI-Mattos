@@ -12,6 +12,12 @@ import {
   typeLabels,
   typeOrder,
 } from "@/lib/labels";
+import {
+  PERIOD_LABELS,
+  SORT_LABELS,
+  TICKET_PERIODS,
+  TICKET_SORTS,
+} from "@/lib/ticket-where";
 
 export interface FilterOptions {
   teams: Array<{ id: number; name: string }>;
@@ -26,6 +32,8 @@ export interface ActiveFilters {
   responsavel?: string;
   q?: string;
   atraso?: string;
+  ordem?: string;
+  periodo?: string;
 }
 
 /**
@@ -146,6 +154,34 @@ export function TicketFilters({
           ))}
         </Select>
       )}
+
+      <Select
+        name="periodo"
+        defaultValue={active.periodo ?? "tudo"}
+        onChange={submit}
+        aria-label="Período"
+        className="w-auto min-w-[9rem]"
+      >
+        {TICKET_PERIODS.map((p) => (
+          <option key={p} value={p}>
+            {PERIOD_LABELS[p]}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        name="ordem"
+        defaultValue={active.ordem ?? "recentes"}
+        onChange={submit}
+        aria-label="Ordenar por"
+        className="w-auto min-w-[9rem]"
+      >
+        {TICKET_SORTS.map((s) => (
+          <option key={s} value={s}>
+            {SORT_LABELS[s]}
+          </option>
+        ))}
+      </Select>
 
       {active.atraso && <input type="hidden" name="atraso" value={active.atraso} />}
 
