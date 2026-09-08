@@ -1,5 +1,5 @@
 import "dotenv/config";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { uniqueSlug } from "../src/lib/slug";
@@ -16,6 +16,11 @@ import { uniqueSlug } from "../src/lib/slug";
 //
 // É idempotente: rodar duas vezes não duplica nada. Os IDs originais são
 // preservados, então referências anotadas fora do sistema continuam valendo.
+//
+// A leitura usa o módulo `node:sqlite`, embutido no Node 24, e não a biblioteca
+// better-sqlite3: aquela precisa compilar código nativo com node-gyp, o que
+// exige Python e compilador dentro da imagem Docker — peso e tempo de build
+// para um script que roda uma única vez.
 
 interface LegacySetor {
   id: number;
@@ -74,18 +79,20 @@ async function main() {
     process.exit(1);
   }
 
-  const legacy = new Database(dbPath, { readonly: true, fileMustExist: true });
+  // readOnly também garante que o arquivo exista: abrir um caminho inexistente
+  // em modo leitura falha, em vez de criar um banco vazio silenciosamente.
+  const legacy = new DatabaseSync(dbPath, { readOnly: true });
 
-  const setores = legacy.prepare("SELECT id, nome, email FROM setor ORDER BY id").all() as LegacySetor[];
+  const setores = legacy.prepare("SELECT id, nome, email FROM setor ORDER BY id").all() as unknown as LegacySetor[];
   const usuarios = legacy
     .prepare("SELECT id, nome, email, senha_hash, tipo, setor_id FROM user ORDER BY id")
-    .all() as LegacyUser[];
+    .all() as unknown as LegacyUser[];
   const categorias = legacy
     .prepare("SELECT id, nome FROM categoria ORDER BY id")
-    .all() as LegacyCategoria[];
+    .all() as unknown as LegacyCategoria[];
 
   const chamados = (
-    legacy.prepare("SELECT COUNT(*) AS n FROM ticket").get() as { n: number }
+    legacy.prepare("SELECT COUNT(*) AS n FROM ticket").get() as unknown as { n: number }
   ).n;
 
   console.log(`Origem: ${dbPath}`);
