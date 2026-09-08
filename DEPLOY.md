@@ -28,23 +28,30 @@ git pull
 cp .env.v2.example .env.v2
 ```
 
-Gere os dois segredos e cole no `.env.v2`:
+Gere e grave os dois segredos de uma vez, sem abrir editor — assim não há risco
+de sair do editor sem salvar, nem de colar o valor na linha errada:
 
 ```bash
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
-echo "AUTH_SECRET=$(openssl rand -hex 32)"
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 24)|; s|^AUTH_SECRET=.*|AUTH_SECRET=$(openssl rand -hex 32)|" .env.v2
 ```
 
 > Os dois são hexadecimais de propósito. A senha do Postgres entra dentro da
 > URL de conexão, e caracteres como `/`, `+` ou `@` — que `openssl rand
 > -base64` produz — quebram essa URL, com um erro que não menciona a senha.
 
-Edite `.env.v2` e preencha:
+Confira sem imprimir os valores:
 
-- `POSTGRES_PASSWORD` — a senha gerada acima
-- `AUTH_SECRET` — o valor gerado acima (assina os cookies de sessão)
-- `SMTP_PASSWORD` — a senha do `ti@labmattos.com.br`, a mesma que está no `.env` antigo
-- `APP_URL` — deixe `https://helpdesk.ti-labmattos.online`
+```bash
+awk -F= '$1=="POSTGRES_PASSWORD"||$1=="AUTH_SECRET"{print $1, length($2)"c"}' .env.v2
+```
+
+Esperado: `POSTGRES_PASSWORD 48c` e `AUTH_SECRET 64c`. Se vier `0c`, o arquivo
+não foi gravado.
+
+Falta só um campo, e é opcional agora: `SMTP_PASSWORD`, a senha do
+`ti@labmattos.com.br` que já está no `.env` antigo. Sem ela o envio de e-mail
+fica **desligado explicitamente** e registrado no log — o sistema sobe e
+funciona normalmente.
 
 Deixe `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD` **vazios**: os administradores
 vêm dos dados importados, no passo 5.
