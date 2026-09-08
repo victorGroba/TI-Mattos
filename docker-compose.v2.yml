@@ -12,6 +12,14 @@
 # .env desta mesma pasta (SECRET_KEY, MAIL_USERNAME, MAIL_PASSWORD).
 # Sobrescrevê-lo derrubaria a configuração do que está no ar.
 
+# Nome de projeto próprio, separado do sistema antigo.
+#
+# Sem isto, os dois compose herdam o nome da pasta (helpdesk) e o Docker trata
+# tudo como um conjunto só: `docker compose -f docker-compose.v2.yml down`
+# derrubaria o container do Flask que está em produção, e um --remove-orphans
+# o apagaria.
+name: helpdesk-v2
+
 services:
   db:
     image: postgres:17-alpine

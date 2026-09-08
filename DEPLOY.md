@@ -19,6 +19,10 @@ Dois nomes que causam confusão, e por isso ficam explícitos:
 
 Por isso todo comando do compose leva `--env-file .env.v2`.
 
+O `docker-compose.v2.yml` também declara `name: helpdesk-v2`, para que os dois
+sistemas sejam projetos Docker separados. Sem isso, ambos herdariam o nome da
+pasta e um `down` na v2 derrubaria o Flask que está em produção.
+
 ## 1. Trazer o código e criar o arquivo de ambiente
 
 ```bash
