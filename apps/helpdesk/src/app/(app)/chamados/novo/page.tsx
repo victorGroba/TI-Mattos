@@ -1,30 +1,28 @@
 import type { Metadata } from "next";
-import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
-import { isAdmin } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { getFormOptions } from "@/lib/ticket-queries";
 import { TicketForm } from "./ticket-form";
 
-export const metadata: Metadata = { title: "Novo chamado" };
+export const metadata: Metadata = { title: "Abrir chamado" };
 export const dynamic = "force-dynamic";
 
 export default async function NewTicketPage() {
   const user = await requireUser("/chamados/novo");
-  const options = await getFormOptions();
+
+  // O setor de quem pede vem do cadastro — mostrado, nunca perguntado.
+  const dados = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { team: { select: { name: true } } },
+  });
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-5">
+    <div className="mx-auto w-full max-w-2xl space-y-7 py-2">
       <PageHeader
         title="Abrir chamado"
-        description="Suporte técnico ou demanda de mudança em um projeto."
+        description="A TI recebe e responde por aqui mesmo"
       />
-
-      <Card>
-        <CardBody>
-          <TicketForm options={options} isAdmin={isAdmin(user.role)} />
-        </CardBody>
-      </Card>
+      <TicketForm setorDoUsuario={dados?.team?.name ?? null} />
     </div>
   );
 }

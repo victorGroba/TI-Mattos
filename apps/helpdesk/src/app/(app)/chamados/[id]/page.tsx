@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { ArrowLeft, FolderKanban, UserRound } from "lucide-react";
 import { ReplyForm } from "@/components/tickets/reply-form";
 import { Timeline } from "@/components/tickets/timeline";
 import { PriorityBadge, SlaBadge, StatusBadge, TypeBadge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import { canViewTicket, isAdmin } from "@/lib/rbac";
 import { requireUser } from "@/lib/session";
 import { slaHealth } from "@/lib/sla";
 import { getFormOptions, getTicketDetail } from "@/lib/ticket-queries";
-import { assignAction, changeStatusAction } from "../actions";
+import { AttachmentList } from "@/components/tickets/attachment-list";
+import { assignAction, changeStatusAction, setProjectAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,9 @@ export default async function TicketDetailPage({
   }
 
   const admin = isAdmin(user.role);
-  const { agents } = admin ? await getFormOptions() : { agents: [] };
+  const { agents, projects } = admin
+    ? await getFormOptions()
+    : { agents: [], projects: [] };
 
   const health = slaHealth(
     new Date(),
@@ -117,6 +120,12 @@ export default async function TicketDetailPage({
               {ticket.description}
             </p>
           </Section>
+
+          {ticket.attachments.length > 0 && (
+            <Section title={`Anexos (${ticket.attachments.length})`}>
+              <AttachmentList itens={ticket.attachments} />
+            </Section>
+          )}
 
           <Section title="Movimentação">
             <Timeline ticket={ticket} canSeeInternal={admin} />
@@ -182,6 +191,37 @@ export default async function TicketDetailPage({
                     aria-label="Definir responsável"
                   >
                     <UserRound />
+                  </Button>
+                </form>
+              )}
+
+              {/* Vincular a um projeto é decisão de triagem: o solicitante
+                  descreve o que precisa, e quem atende decide se aquilo é
+                  suporte ou demanda de uma frente de trabalho. */}
+              {admin && projects.length > 0 && (
+                <form action={setProjectAction} className="flex gap-1.5">
+                  <input type="hidden" name="ticketId" value={ticket.id} />
+                  <Select
+                    name="projectId"
+                    defaultValue={ticket.projectId ? String(ticket.projectId) : ""}
+                    aria-label="Projeto"
+                    className="h-8 text-[13px]"
+                  >
+                    <option value="">Sem projeto</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.key} — {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 shrink-0"
+                    aria-label="Vincular ao projeto"
+                  >
+                    <FolderKanban />
                   </Button>
                 </form>
               )}

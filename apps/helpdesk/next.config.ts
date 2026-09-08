@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   // resolução desses arquivos no bundle do servidor.
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg"],
 
+  experimental: {
+    serverActions: {
+      // O padrão é 1 MB, insuficiente para foto de celular. O limite por
+      // arquivo (8 MB, em lib/storage.ts) e a quantidade (5) são validados no
+      // servidor; esta folga cobre os dois mais o overhead do multipart.
+      bodySizeLimit: "45mb",
+    },
+  },
+
   devIndicators: {
     // O padrão (bottom-left) cobre o rodapé da barra lateral, justamente onde
     // ficam a conta e o botão de tema. Só afeta desenvolvimento.

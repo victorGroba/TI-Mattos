@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Lock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
+import { AttachmentPicker } from "./attachment-picker";
 import { addCommentAction, type FormState } from "@/app/(app)/chamados/actions";
 
 function SubmitButton() {
@@ -59,6 +60,21 @@ export function ReplyForm({
         placeholder="Escreva sua resposta…"
         aria-label="Resposta"
       />
+
+      <AttachmentPicker />
+
+      {state.rejected && state.rejected.length > 0 && (
+        <div className="rounded-md bg-warning-subtle px-3 py-2 text-[12px] text-warning">
+          <p className="font-medium">Alguns arquivos não foram enviados:</p>
+          <ul className="mt-1 space-y-0.5">
+            {state.rejected.map((r, i) => (
+              <li key={i}>
+                {r.filename} — {r.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <SubmitButton />

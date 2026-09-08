@@ -6,6 +6,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/rbac";
 import { requireUser } from "@/lib/session";
+import { getDefaultTeamId } from "@/lib/settings";
+import { storeUploads } from "@/lib/storage";
 import { addComment, assignTicket, changeStatus, createTicket } from "@/lib/tickets";
 
 // Toda action revalida a permissão contra a sessão do servidor. O que a tela
@@ -23,16 +25,14 @@ const createSchema = z.object({
   title: z.string().trim().min(4, "Descreva o assunto em pelo menos 4 caracteres").max(200),
   description: z.string().trim().min(10, "Detalhe o pedido em pelo menos 10 caracteres"),
   type: z.enum(["SUPPORT", "INCIDENT", "CHANGE_REQUEST", "IMPROVEMENT", "TASK"]),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
   categoryId: optionalId,
-  teamId: optionalId,
-  projectId: optionalId,
-  assigneeId: optionalId,
 });
 
 export interface FormState {
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** Arquivos recusados no envio, para a tela dizer qual e por quê. */
+  rejected?: Array<{ filename: string; reason: string }>;
 }
 
 export async function createTicketAction(
@@ -45,11 +45,7 @@ export async function createTicketAction(
     title: formData.get("title"),
     description: formData.get("description"),
     type: formData.get("type"),
-    priority: formData.get("priority"),
     categoryId: formData.get("categoryId") ?? undefined,
-    teamId: formData.get("teamId") ?? undefined,
-    projectId: formData.get("projectId") ?? undefined,
-    assigneeId: formData.get("assigneeId") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -63,9 +59,18 @@ export async function createTicketAction(
 
   const data = parsed.data;
 
-  // Um usuário comum não escolhe prioridade nem responsável — senão tudo vira
-  // urgente. Ele pede; o administrador classifica.
-  const admin = isAdmin(user.role);
+  // Ninguém escolhe prioridade nem setor na abertura.
+  //
+  // Prioridade perguntada ao solicitante vira sempre "urgente" e deixa de
+  // ordenar coisa alguma; ela nasce média e a triagem ajusta. O setor que
+  // atende é sempre o mesmo (a TI) e o setor de quem pede já está no cadastro
+  // da pessoa — perguntar seria pedir que ela adivinhasse a estrutura interna.
+  const teamId = await getDefaultTeamId();
+
+  // Anexos: gravados antes de criar o chamado só se houver arquivo, para não
+  // deixar arquivo órfão em disco caso a criação falhe logo em seguida.
+  const arquivos = formData.getAll("anexos").filter((f): f is File => f instanceof File);
+  const { stored, rejected } = await storeUploads(arquivos);
 
   let ticket;
   try {
@@ -73,23 +78,81 @@ export async function createTicketAction(
       title: data.title,
       description: data.description,
       type: data.type,
-      priority: admin ? data.priority : "MEDIUM",
+      priority: "MEDIUM",
       categoryId: data.categoryId,
-      teamId: data.teamId,
-      projectId: data.projectId,
-      assigneeId: admin ? data.assigneeId : null,
+      teamId,
       requesterId: user.id,
       source: "WEB",
     });
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Não foi possível abrir o chamado.",
+      rejected: rejected.length > 0 ? rejected : undefined,
     };
+  }
+
+  if (stored.length > 0) {
+    await prisma.attachment.createMany({
+      data: stored.map((f) => ({
+        ticketId: ticket.id,
+        uploadedById: user.id,
+        filename: f.filename,
+        mimeType: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        storageKey: f.storageKey,
+      })),
+    });
+    await prisma.ticketEvent.create({
+      data: {
+        ticketId: ticket.id,
+        actorId: user.id,
+        type: "ATTACHMENT_ADDED",
+        metadata: { quantidade: stored.length },
+      },
+    });
   }
 
   revalidatePath("/chamados");
   revalidatePath("/meus-chamados");
   redirect(`/chamados/${ticket.id}`);
+}
+
+// ---------- Projeto ----------
+
+/** Vincula o chamado a um projeto. É decisão de triagem, só do administrador. */
+export async function setProjectAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!isAdmin(user.role)) return;
+
+  const ticketId = Number(formData.get("ticketId"));
+  const raw = String(formData.get("projectId") ?? "");
+  if (!Number.isInteger(ticketId) || ticketId <= 0) return;
+
+  const projectId = raw === "" ? null : Number(raw);
+  if (projectId !== null && !Number.isInteger(projectId)) return;
+
+  const atual = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { projectId: true },
+  });
+  if (!atual || atual.projectId === projectId) return;
+
+  await prisma.$transaction([
+    prisma.ticket.update({ where: { id: ticketId }, data: { projectId } }),
+    prisma.ticketEvent.create({
+      data: {
+        ticketId,
+        actorId: user.id,
+        type: "PROJECT_CHANGED",
+        field: "projectId",
+        fromValue: atual.projectId ? String(atual.projectId) : null,
+        toValue: projectId ? String(projectId) : null,
+      },
+    }),
+  ]);
+
+  revalidatePath(`/chamados/${ticketId}`);
+  revalidatePath("/projetos");
 }
 
 // ---------- Respostas ----------
@@ -127,15 +190,34 @@ export async function addCommentAction(
     return { error: "Você não tem acesso a este chamado." };
   }
 
-  await addComment({
+  const comment = await addComment({
     ticketId: parsed.data.ticketId,
     authorId: user.id,
     body: parsed.data.body,
     internal: parsed.data.internal,
   });
 
+  const arquivos = formData.getAll("anexos").filter((f): f is File => f instanceof File);
+  const { stored, rejected } = await storeUploads(arquivos);
+
+  if (stored.length > 0) {
+    // Vinculados ao comentário E ao chamado: aparecem junto da mensagem na
+    // conversa e também na lista geral de anexos do chamado.
+    await prisma.attachment.createMany({
+      data: stored.map((f) => ({
+        ticketId: parsed.data.ticketId,
+        commentId: comment.id,
+        uploadedById: user.id,
+        filename: f.filename,
+        mimeType: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        storageKey: f.storageKey,
+      })),
+    });
+  }
+
   revalidatePath(`/chamados/${parsed.data.ticketId}`);
-  return {};
+  return rejected.length > 0 ? { rejected } : {};
 }
 
 // ---------- Status ----------

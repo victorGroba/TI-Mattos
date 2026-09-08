@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { EventType } from "@/generated/prisma/enums";
 import { Avatar } from "@/components/ui/misc";
+import { AttachmentList } from "./attachment-list";
 import { formatDateTime, formatMinutes } from "@/lib/format";
 import { priorityLabels, statusLabels, typeLabels } from "@/lib/labels";
 import type { TicketDetail } from "@/lib/ticket-queries";
@@ -156,9 +157,14 @@ export function Timeline({
                   {formatDateTime(comment.createdAt)}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
                 {comment.body}
               </p>
+              {comment.attachments.length > 0 && (
+                <div className="mt-2.5">
+                  <AttachmentList itens={comment.attachments} compacto />
+                </div>
+              )}
             </div>
           </li>
         );

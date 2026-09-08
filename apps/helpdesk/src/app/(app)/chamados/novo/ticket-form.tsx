@@ -3,216 +3,213 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, Send } from "lucide-react";
+import { AlertCircle, ArrowRight, Lightbulb, LifeBuoy, TriangleAlert } from "lucide-react";
+import type { TicketType } from "@/generated/prisma/enums";
+import { AttachmentPicker } from "@/components/tickets/attachment-picker";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import {
-  priorityLabels,
-  priorityOrder,
-  projectTypes,
-  typeLabels,
-  typeOrder,
-} from "@/lib/labels";
+import { Input, Label, Textarea } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 import { createTicketAction, type FormState } from "../actions";
 
-export interface FormOptions {
-  teams: Array<{ id: number; name: string }>;
-  categories: Array<{ id: number; name: string; teamId: number | null }>;
-  projects: Array<{ id: number; name: string; key: string }>;
-  agents: Array<{ id: number; name: string }>;
+// Abertura de chamado.
+//
+// Quatro campos, nesta ordem: o que é, o assunto, o detalhe e o anexo.
+//
+// Ficaram de fora, de propósito:
+//   - Setor responsável — é sempre a TI, e o setor de quem pede já está no
+//     cadastro. Perguntar seria pedir que a pessoa adivinhasse a estrutura.
+//   - Prioridade — perguntada ao solicitante, vira sempre "urgente" e deixa de
+//     ordenar qualquer coisa. Nasce média e a triagem ajusta.
+//   - Projeto e categoria — classificação, decidida por quem atende.
+//
+// Esta tela é o oposto das telas de operação: quem abre um chamado entra aqui
+// uma vez por mês, então cabe respiro e texto explicativo, e não densidade.
+
+interface Opcao {
+  value: TicketType;
+  icone: typeof LifeBuoy;
+  titulo: string;
+  descricao: string;
 }
+
+const OPCOES: Opcao[] = [
+  {
+    value: "INCIDENT",
+    icone: TriangleAlert,
+    titulo: "Algo parou de funcionar",
+    descricao: "Impressora, sistema, internet, telefone — algo que funcionava e parou.",
+  },
+  {
+    value: "SUPPORT",
+    icone: LifeBuoy,
+    titulo: "Preciso de ajuda ou acesso",
+    descricao: "Liberar uma pasta, criar usuário, instalar programa, tirar uma dúvida.",
+  },
+  {
+    value: "IMPROVEMENT",
+    icone: Lightbulb,
+    titulo: "Tenho uma ideia ou pedido",
+    descricao: "Uma melhoria num sistema, um relatório novo, uma mudança de processo.",
+  },
+];
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
-      <Send />
-      {pending ? "Abrindo…" : "Abrir chamado"}
+    <Button type="submit" size="lg" disabled={pending} className="min-w-40">
+      {pending ? "Enviando…" : "Abrir chamado"}
+      {!pending && <ArrowRight />}
     </Button>
   );
 }
 
-export function TicketForm({
-  options,
-  isAdmin,
-}: {
-  options: FormOptions;
-  isAdmin: boolean;
-}) {
+export function TicketForm({ setorDoUsuario }: { setorDoUsuario: string | null }) {
   const [state, action] = useActionState<FormState, FormData>(createTicketAction, {});
-
-  const [type, setType] = useState<string>("SUPPORT");
-  const [categoryId, setCategoryId] = useState<string>("");
-
-  // O setor segue a categoria por padrão, mas continua editável: a maioria dos
-  // chamados vai para o time certo sem ninguém pensar, e a exceção ainda é
-  // possível sem precisar de outra tela.
-  const categoryTeam = options.categories.find(
-    (c) => String(c.id) === categoryId,
-  )?.teamId;
-
-  const showProject = projectTypes.includes(type as never);
+  const [tipo, setTipo] = useState<TicketType>("INCIDENT");
 
   return (
-    <form action={action} className="space-y-5">
-      <Field
-        label="Tipo de pedido"
-        htmlFor="type"
-        hint={
-          showProject
-            ? "Demandas de projeto entram na fila de planejamento, com prazo de calendário."
-            : "Suporte e incidentes seguem o SLA de atendimento, em horário útil."
-        }
-      >
-        <Select
-          id="type"
-          name="type"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        >
-          {typeOrder.map((t) => (
-            <option key={t} value={t}>
-              {typeLabels[t]}
-            </option>
-          ))}
-        </Select>
-      </Field>
+    <form action={action} className="space-y-8">
+      <fieldset>
+        <legend className="mb-3 text-[13px] font-medium text-foreground">
+          Do que você precisa?
+        </legend>
 
-      <Field
-        label="Assunto"
-        htmlFor="title"
-        required
-        error={state.fieldErrors?.title}
-        hint="Uma frase que resuma o pedido, como você diria para um colega."
-      >
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {OPCOES.map((opcao) => {
+            const Icone = opcao.icone;
+            const ativo = tipo === opcao.value;
+            return (
+              <label
+                key={opcao.value}
+                className={cn(
+                  "flex cursor-pointer flex-col rounded-lg border p-3.5 transition-colors",
+                  ativo
+                    ? "border-primary bg-primary-subtle"
+                    : "border-border bg-surface hover:border-border-strong",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="type"
+                  value={opcao.value}
+                  checked={ativo}
+                  onChange={() => setTipo(opcao.value)}
+                  className="sr-only"
+                />
+                <Icone
+                  className={cn(
+                    "mb-2 size-5",
+                    ativo ? "text-primary-subtle-foreground" : "text-subtle-foreground",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-[13px] font-medium",
+                    ativo ? "text-primary-subtle-foreground" : "text-foreground",
+                  )}
+                >
+                  {opcao.titulo}
+                </span>
+                <span className="mt-1 text-[12px] leading-snug text-muted-foreground">
+                  {opcao.descricao}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="title" className="text-[13px] font-medium text-foreground">
+          Assunto
+        </Label>
         <Input
           id="title"
           name="title"
           required
           maxLength={200}
-          placeholder="Ex.: Impressora da recepção não imprime em rede"
+          className="h-10"
+          placeholder={
+            tipo === "INCIDENT"
+              ? "Ex.: Impressora da recepção não imprime"
+              : tipo === "SUPPORT"
+                ? "Ex.: Liberar acesso à pasta de resultados"
+                : "Ex.: Incluir o número do lote no laudo"
+          }
         />
-      </Field>
+        {state.fieldErrors?.title && (
+          <p className="text-xs text-danger">{state.fieldErrors.title}</p>
+        )}
+      </div>
 
-      <Field
-        label="Descrição"
-        htmlFor="description"
-        required
-        error={state.fieldErrors?.description}
-        hint="O que acontece, desde quando, e o que já foi tentado."
-      >
+      <div className="space-y-1.5">
+        <Label htmlFor="description" className="text-[13px] font-medium text-foreground">
+          Conte o que está acontecendo
+        </Label>
+        <p className="text-[12px] text-muted-foreground">
+          Quanto mais detalhe, menos idas e vindas. Se possível: desde quando
+          acontece, em qual computador, e o que você já tentou.
+        </p>
         <Textarea
           id="description"
           name="description"
           required
-          rows={7}
-          placeholder="Descreva o problema ou a mudança desejada com o máximo de detalhe possível."
+          rows={6}
+          className="leading-relaxed"
+          placeholder="Descreva com suas palavras…"
         />
-      </Field>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Categoria" htmlFor="categoryId">
-          <Select
-            id="categoryId"
-            name="categoryId"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <option value="">Não sei / outra</option>
-            {options.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field
-          label="Setor responsável"
-          htmlFor="teamId"
-          hint={
-            categoryTeam
-              ? "Preenchido pela categoria — pode trocar se souber o setor certo."
-              : undefined
-          }
-        >
-          <Select
-            id="teamId"
-            name="teamId"
-            key={categoryTeam ?? "sem-categoria"}
-            defaultValue={categoryTeam ? String(categoryTeam) : ""}
-          >
-            <option value="">Definir na triagem</option>
-            {options.teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {state.fieldErrors?.description && (
+          <p className="text-xs text-danger">{state.fieldErrors.description}</p>
+        )}
       </div>
 
-      {showProject && options.projects.length > 0 && (
-        <Field
-          label="Projeto"
-          htmlFor="projectId"
-          hint="Vincular ao projeto é o que faz a demanda aparecer nos relatórios de entrega."
-        >
-          <Select id="projectId" name="projectId" defaultValue="">
-            <option value="">Sem projeto</option>
-            {options.projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.key} — {p.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      )}
-
-      {isAdmin && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Prioridade" htmlFor="priority">
-            <Select id="priority" name="priority" defaultValue="MEDIUM">
-              {priorityOrder.map((p) => (
-                <option key={p} value={p}>
-                  {priorityLabels[p]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Responsável" htmlFor="assigneeId">
-            <Select id="assigneeId" name="assigneeId" defaultValue="">
-              <option value="">Sem responsável ainda</option>
-              {options.agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      )}
-
-      {/* Usuário comum não escolhe prioridade — o servidor também ignora se
-          vier no formulário, mas mandar o padrão mantém o payload coerente. */}
-      {!isAdmin && <input type="hidden" name="priority" value="MEDIUM" />}
+      <div className="space-y-1.5">
+        <Label className="text-[13px] font-medium text-foreground">
+          Anexos <span className="font-normal text-subtle-foreground">(opcional)</span>
+        </Label>
+        <AttachmentPicker />
+      </div>
 
       {state.error && (
         <p
           role="alert"
-          className="flex items-center gap-2 rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger"
+          className="flex items-start gap-2 rounded-md bg-danger-subtle px-3 py-2 text-[13px] text-danger"
         >
-          <AlertCircle className="size-4 shrink-0" />
+          <AlertCircle className="mt-px size-4 shrink-0" />
           {state.error}
         </p>
       )}
 
-      <div className="flex items-center gap-2 border-t border-border pt-4">
-        <SubmitButton />
-        <Button asChild variant="ghost">
-          <Link href="/meus-chamados">Cancelar</Link>
-        </Button>
+      {state.rejected && state.rejected.length > 0 && (
+        <div className="rounded-md bg-warning-subtle px-3 py-2 text-[12px] text-warning">
+          <p className="font-medium">Alguns arquivos não foram enviados:</p>
+          <ul className="mt-1 space-y-0.5">
+            {state.rejected.map((r, i) => (
+              <li key={i}>
+                {r.filename} — {r.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-5">
+        <p className="text-[12px] text-muted-foreground">
+          {setorDoUsuario ? (
+            <>
+              Será registrado em nome do setor{" "}
+              <span className="text-foreground">{setorDoUsuario}</span> e enviado para a TI.
+            </>
+          ) : (
+            <>O chamado será enviado para a TI.</>
+          )}
+        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/meus-chamados">Cancelar</Link>
+          </Button>
+          <SubmitButton />
+        </div>
       </div>
     </form>
   );

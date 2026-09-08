@@ -97,7 +97,14 @@ export async function getTicketDetail(id: number) {
       tags: true,
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true, role: true } } },
+        include: {
+          author: { select: { id: true, name: true, role: true } },
+          attachments: true,
+        },
+      },
+      attachments: {
+        orderBy: { createdAt: "asc" },
+        include: { uploadedBy: { select: { id: true, name: true } } },
       },
       events: {
         orderBy: { createdAt: "asc" },
