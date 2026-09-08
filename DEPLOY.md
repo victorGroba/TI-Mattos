@@ -105,6 +105,24 @@ docker compose -f docker-compose.v2.yml --env-file .env.v2 \
 
 As senhas vêm intactas: quem já usa o sistema antigo entra com a mesma senha.
 
+## 4b. Importar os chamados e as respostas
+
+```bash
+docker compose -f docker-compose.v2.yml --env-file .env.v2   run --rm migrate npx tsx scripts/migrate-legacy-tickets.ts /legado/helpdesk.db --dry-run
+```
+
+Confira a contagem e a distribuição por status; depois rode sem `--dry-run`.
+
+Os números (`#1`, `#2`...) são preservados, então referências anotadas fora do
+sistema continuam valendo.
+
+Sobre as métricas do que foi importado: o sistema antigo não guardava data de
+resolução nem histórico de transições. O script **não inventa** esses números.
+A primeira resposta é real (diferença entre dois carimbos de tempo). A
+resolução usa a data da última resposta como aproximação, e só quando ela
+existe — um chamado concluído sem nenhuma resposta entra como encerrado, porém
+sem tempo de entrega, em vez de contribuir com um valor falso para a média.
+
 ## 5. Definir quem é administrador
 
 ```bash
