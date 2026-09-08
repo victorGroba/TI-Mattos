@@ -31,9 +31,13 @@ cp .env.v2.example .env.v2
 Gere os dois segredos e cole no `.env.v2`:
 
 ```bash
-echo "POSTGRES_PASSWORD=$(openssl rand -base64 24)"
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
 echo "AUTH_SECRET=$(openssl rand -hex 32)"
 ```
+
+> Os dois são hexadecimais de propósito. A senha do Postgres entra dentro da
+> URL de conexão, e caracteres como `/`, `+` ou `@` — que `openssl rand
+> -base64` produz — quebram essa URL, com um erro que não menciona a senha.
 
 Edite `.env.v2` e preencha:
 
