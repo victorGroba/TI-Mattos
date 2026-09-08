@@ -1,7 +1,15 @@
 # syntax=docker/dockerfile:1
 
+# A versão do Node é fixa, não `24-alpine`.
+#
+# A tag móvel trouxe um npm mais novo que o usado para gerar o
+# package-lock.json, e o `npm ci` passou a recusar a instalação por causa da
+# nova política de scripts — despejando a ajuda do comando em vez de um erro
+# claro. Fixar a versão torna o build reproduzível: a mesma imagem hoje e daqui
+# a seis meses.
+
 # ---------- dependências ----------
-FROM node:24-alpine AS deps
+FROM node:24.11.1-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -9,7 +17,7 @@ RUN npm ci
 # ---------- build ----------
 # Este estágio também é a imagem usada pelo serviço de migração no compose:
 # ele tem o CLI do Prisma e o tsx, que a imagem final (enxuta) não carrega.
-FROM node:24-alpine AS builder
+FROM node:24.11.1-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -26,7 +34,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ---------- runtime ----------
-FROM node:24-alpine AS runner
+FROM node:24.11.1-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
