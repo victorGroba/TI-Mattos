@@ -16,6 +16,12 @@ import {
   selectPolicy,
 } from "./sla";
 import { emitWebhook } from "./webhooks";
+import {
+  notificarChamadoCriado,
+  notificarResolucao,
+  notificarResposta,
+  notificarSlaEstourado,
+} from "./notify";
 
 // Ponto único de escrita dos tickets.
 //
@@ -199,6 +205,12 @@ export async function createTicket(input: CreateTicketInput) {
   });
 
   emitWebhook("ticket.created", serializeTicket(ticket));
+
+  // Aguardado porque grava a notificação do sino no mesmo banco — é uma
+  // consulta rápida, e o aviso precisa existir quando a página recarregar. O
+  // e-mail, esse sim, sai em segundo plano lá dentro.
+  await notificarChamadoCriado(ticket);
+
   return ticket;
 }
 
@@ -313,6 +325,18 @@ export async function changeStatus(
     if (result.reopening) emitWebhook("ticket.reopened", payload);
     if (toStatus === "RESOLVED") emitWebhook("ticket.resolved", payload);
     if (toStatus === "CLOSED") emitWebhook("ticket.closed", payload);
+
+    // Só avisa o solicitante quando o chamado chega ao fim; mudança de
+    // "aberto" para "em andamento" não é notícia para quem pediu.
+    if (toStatus === "RESOLVED" || toStatus === "CLOSED") {
+      const autor = actorId
+        ? await prisma.user.findUnique({
+            where: { id: actorId },
+            select: { name: true },
+          })
+        : null;
+      await notificarResolucao(result.ticket, autor);
+    }
   }
 
   return result.ticket;
@@ -463,6 +487,14 @@ export async function addComment(input: AddCommentInput) {
       ...serializeTicket(ticket),
       comment: { id: comment.id, body: comment.body, authorId: comment.authorId },
     });
+
+    const autor = await prisma.user.findUnique({
+      where: { id: input.authorId },
+      select: { id: true, name: true },
+    });
+    if (autor) {
+      await notificarResposta(ticket, autor, input.body, false);
+    }
   }
   if (firstResponse && ticket.slaResponseBreached) {
     emitWebhook("sla.response_breached", serializeTicket(ticket));
@@ -505,6 +537,7 @@ export async function sweepSlaBreaches(): Promise<{ response: number; resolution
       }),
     ]);
     emitWebhook("sla.response_breached", serializeTicket(ticket));
+    await notificarSlaEstourado(ticket, "resposta");
   }
 
   const resolutionOverdue = await prisma.ticket.findMany({
@@ -531,6 +564,7 @@ export async function sweepSlaBreaches(): Promise<{ response: number; resolution
       }),
     ]);
     emitWebhook("sla.resolution_breached", serializeTicket(ticket));
+    await notificarSlaEstourado(ticket, "solucao");
   }
 
   return { response: responseOverdue.length, resolution: resolutionOverdue.length };

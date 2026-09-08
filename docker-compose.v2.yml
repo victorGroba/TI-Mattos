@@ -105,6 +105,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      CRON_SECRET: ${CRON_SECRET:-}
       UPLOAD_DIR: /app/uploads
     volumes:
       - helpdesk_uploads:/app/uploads

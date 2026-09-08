@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SidebarCounts } from "@/lib/sidebar-counts";
 import { isActive, visibleSections } from "./nav-config";
+import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
@@ -174,10 +175,13 @@ export function Sidebar({
 
         {/* Rodapé: fecha a coluna e dá a ela começo e fim. Sem isso sobrava um
             vazio grande embaixo da navegação. */}
-        <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-2">
+        <div className="flex shrink-0 items-center gap-0.5 border-t border-border px-2 py-2">
           <UserMenu id={user.id} name={user.name} email={user.email} role={user.role} />
-          <span className="ml-auto hidden lg:block">
-            <ThemeToggle />
+          <span className="ml-auto flex items-center">
+            <NotificationBell inicial={counts.unread} />
+            <span className="hidden lg:block">
+              <ThemeToggle />
+            </span>
           </span>
         </div>
       </aside>

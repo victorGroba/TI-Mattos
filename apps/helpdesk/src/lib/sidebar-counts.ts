@@ -15,12 +15,14 @@ export interface SidebarCounts {
   counts: Record<string, number>;
   /** Itens que devem exibir sinal de atenção (SLA estourado na fila). */
   alerts: Record<string, boolean>;
+  /** Avisos não lidos, para o sino já vir com o número certo no primeiro quadro. */
+  unread: number;
 }
 
 export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts> {
   const admin = isAdmin(user.role);
 
-  const [queue, overdue, mine, projects] = await Promise.all([
+  const [queue, overdue, mine, projects, unread] = await Promise.all([
     admin
       ? prisma.ticket.count({ where: buildTicketWhere(user, { onlyOpen: true }) })
       : Promise.resolve(0),
@@ -38,6 +40,7 @@ export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts
     admin
       ? prisma.project.count({ where: { status: { in: ["PLANNING", "ACTIVE"] } } })
       : Promise.resolve(0),
+    prisma.notification.count({ where: { userId: user.id, readAt: null } }),
   ]);
 
   return {
@@ -49,5 +52,6 @@ export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts
     alerts: {
       "/chamados": overdue > 0,
     },
+    unread,
   };
 }

@@ -188,6 +188,29 @@ Acrescente:
 15 2 * * * /usr/local/bin/backup-helpdesk >> /var/log/backup-helpdesk.log 2>&1
 ```
 
+## 10. Agendar as rotinas automáticas
+
+O estouro de SLA não é causado por ninguém: o prazo vence sozinho, sem clique
+que dispare a checagem. Por isso precisa de uma rotina externa.
+
+Gere o segredo e coloque em `CRON_SECRET`, no `.env.v2`:
+
+```bash
+sed -i "s|^CRON_SECRET=.*|CRON_SECRET=$(openssl rand -hex 32)|" .env.v2
+docker compose -f docker-compose.v2.yml --env-file .env.v2 up -d
+```
+
+Depois agende (`crontab -e`), lendo o segredo do próprio arquivo:
+
+```
+*/15 * * * * . /var/www/helpdesk/.env.v2; curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://helpdesk.ti-labmattos.online/api/cron/sla > /dev/null
+*/5  * * * * . /var/www/helpdesk/.env.v2; curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://helpdesk.ti-labmattos.online/api/cron/webhooks > /dev/null
+```
+
+Sem `CRON_SECRET` definido, as duas rotas respondem 503 e ficam desligadas —
+um endpoint público que dispara e-mail para todos os administradores seria um
+amplificador de spam.
+
 ## Atualizações seguintes
 
 Aí sim é simples:
