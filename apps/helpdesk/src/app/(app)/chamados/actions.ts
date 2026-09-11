@@ -285,6 +285,47 @@ export async function assignAction(formData: FormData): Promise<void> {
   revalidatePath("/chamados");
 }
 
+// ---------- Arquivamento ----------
+
+/**
+ * Arquiva ou desarquiva um chamado. Só o administrador, e sempre reversível:
+ * arquivar tira da vista e das métricas, mas não apaga nada.
+ */
+export async function toggleArchiveAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!isAdmin(user.role)) return;
+
+  const ticketId = Number(formData.get("ticketId"));
+  if (!Number.isInteger(ticketId) || ticketId <= 0) return;
+
+  const atual = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { archivedAt: true },
+  });
+  if (!atual) return;
+
+  const arquivando = atual.archivedAt === null;
+
+  await prisma.$transaction([
+    prisma.ticket.update({
+      where: { id: ticketId },
+      data: { archivedAt: arquivando ? new Date() : null },
+    }),
+    prisma.ticketEvent.create({
+      data: {
+        ticketId,
+        actorId: user.id,
+        type: "STATUS_CHANGED",
+        field: "archivedAt",
+        toValue: arquivando ? "arquivado" : "reaberto para a fila",
+      },
+    }),
+  ]);
+
+  revalidatePath(`/chamados/${ticketId}`);
+  revalidatePath("/chamados");
+}
+
 // ---------- Apontamento de horas ----------
 
 const timeSchema = z.object({

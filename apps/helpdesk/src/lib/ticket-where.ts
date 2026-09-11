@@ -27,6 +27,13 @@ export interface TicketFilters {
   overdue?: boolean;
   /** Restringe a quem abriu — a tela "Meus chamados", mesmo para atendentes. */
   requesterOnly?: boolean;
+  /**
+   * Como tratar os arquivados. Padrão: fora de tudo.
+   *   "ativos"  — só os não arquivados
+   *   "todos"   — ativos e arquivados juntos
+   *   "somente" — só os arquivados, para consultar o histórico descartado
+   */
+  archived?: ArchivedMode;
   sort?: TicketSort;
   period?: TicketPeriod;
   page?: number;
@@ -88,6 +95,15 @@ export function periodStart(period: TicketPeriod, agora = new Date()): Date | nu
   }
 }
 
+export const ARCHIVED_MODES = ["ativos", "todos", "somente"] as const;
+export type ArchivedMode = (typeof ARCHIVED_MODES)[number];
+
+export function parseArchived(value: string | undefined): ArchivedMode {
+  if (value === "1") return "todos";
+  if (value === "so") return "somente";
+  return "ativos";
+}
+
 /** Ordenações oferecidas na fila. */
 export const TICKET_SORTS = ["recentes", "antigos", "prioridade"] as const;
 export type TicketSort = (typeof TICKET_SORTS)[number];
@@ -146,6 +162,14 @@ export function buildTicketWhere(
   if (Object.keys(visibility).length > 0) and.push(visibility);
 
   const where: Prisma.TicketWhereInput = {};
+
+  // Arquivado sai de tudo por padrão: fila, contadores, painel e relatórios.
+  // O filtro mora aqui, na montagem única do where, e não em cada tela — foi
+  // assim que a regra de visibilidade deixou de ter como escapar por uma rota
+  // esquecida.
+  const modo = filters.archived ?? "ativos";
+  if (modo === "ativos") where.archivedAt = null;
+  else if (modo === "somente") where.archivedAt = { not: null };
 
   if (filters.requesterOnly) where.requesterId = user.id;
 

@@ -1,6 +1,9 @@
 import { prisma } from "./prisma";
 import { activeStatuses } from "./labels";
 
+/** Arquivados ficam fora de toda contagem de projeto. */
+const ATIVO = { archivedAt: null } as const;
+
 // Consultas da área de projetos.
 //
 // Um projeto aqui é um agrupador de demandas (CHANGE_REQUEST / IMPROVEMENT /
@@ -41,23 +44,24 @@ export async function listProjects(includeArchived = false): Promise<ProjectSumm
   const [totals, open, resolved, overdue] = await Promise.all([
     prisma.ticket.groupBy({
       by: ["projectId"],
-      where: { projectId: { in: ids } },
+      where: { ...ATIVO, projectId: { in: ids } },
       _count: { _all: true },
     }),
     prisma.ticket.groupBy({
       by: ["projectId"],
-      where: { projectId: { in: ids }, status: { in: activeStatuses } },
+      where: { ...ATIVO, projectId: { in: ids }, status: { in: activeStatuses } },
       _count: { _all: true },
     }),
     prisma.ticket.groupBy({
       by: ["projectId"],
-      where: { projectId: { in: ids }, status: { in: ["RESOLVED", "CLOSED"] } },
+      where: { ...ATIVO, projectId: { in: ids }, status: { in: ["RESOLVED", "CLOSED"] } },
       _count: { _all: true },
       _avg: { resolutionMinutes: true },
     }),
     prisma.ticket.groupBy({
       by: ["projectId"],
       where: {
+        ...ATIVO,
         projectId: { in: ids },
         status: { in: activeStatuses },
         slaResolutionBreached: true,
@@ -106,26 +110,26 @@ export async function getProject(id: number) {
 /** Números de entrega do projeto — o que responde "estamos no ritmo?". */
 export async function getProjectMetrics(projectId: number) {
   const [total, open, resolved, overdue, oldest] = await Promise.all([
-    prisma.ticket.count({ where: { projectId } }),
-    prisma.ticket.count({ where: { projectId, status: { in: activeStatuses } } }),
+    prisma.ticket.count({ where: { ...ATIVO, projectId } }),
+    prisma.ticket.count({ where: { ...ATIVO, projectId, status: { in: activeStatuses } } }),
     prisma.ticket.aggregate({
-      where: { projectId, status: { in: ["RESOLVED", "CLOSED"] } },
+      where: { ...ATIVO, projectId, status: { in: ["RESOLVED", "CLOSED"] } },
       _count: { _all: true },
       _avg: { resolutionMinutes: true },
       _sum: { workingMinutes: true },
     }),
     prisma.ticket.count({
-      where: { projectId, status: { in: activeStatuses }, slaResolutionBreached: true },
+      where: { ...ATIVO, projectId, status: { in: activeStatuses }, slaResolutionBreached: true },
     }),
     prisma.ticket.findFirst({
-      where: { projectId, status: { in: activeStatuses } },
+      where: { ...ATIVO, projectId, status: { in: activeStatuses } },
       orderBy: { createdAt: "asc" },
       select: { createdAt: true },
     }),
   ]);
 
   const loggedMinutes = await prisma.timeEntry.aggregate({
-    where: { ticket: { projectId } },
+    where: { ticket: { ...ATIVO, projectId } },
     _sum: { minutes: true },
   });
 

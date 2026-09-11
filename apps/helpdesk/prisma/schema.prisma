@@ -264,6 +264,11 @@ model Ticket {
   estimateMinutes Int?
   dueAt           DateTime?
 
+  // Arquivamento: tira o chamado da vista e das métricas sem apagar nada.
+  // Usado para descartar histórico antigo migrado sem perder a possibilidade
+  // de consultá-lo depois. Nulo = ativo.
+  archivedAt DateTime?
+
   category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   team      Team       @relation(fields: [teamId], references: [id])
   project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -288,6 +293,8 @@ model Ticket {
   @@index([projectId, status])
   @@index([status, resolutionDueAt])
   @@index([type, createdAt(sort: Desc)])
+  // Quase toda consulta filtra por não-arquivado; o índice evita varredura.
+  @@index([archivedAt])
   @@map("tickets")
 }
 

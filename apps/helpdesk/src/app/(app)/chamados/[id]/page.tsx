@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, FolderKanban, UserRound } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, FolderKanban, UserRound } from "lucide-react";
 import { ReplyForm } from "@/components/tickets/reply-form";
 import { Timeline } from "@/components/tickets/timeline";
 import { PriorityBadge, SlaBadge, StatusBadge, TypeBadge } from "@/components/ui/badge";
@@ -17,7 +17,12 @@ import { requireUser } from "@/lib/session";
 import { slaHealth } from "@/lib/sla";
 import { getFormOptions, getTicketDetail } from "@/lib/ticket-queries";
 import { AttachmentList } from "@/components/tickets/attachment-list";
-import { assignAction, changeStatusAction, setProjectAction } from "../actions";
+import {
+  assignAction,
+  changeStatusAction,
+  setProjectAction,
+  toggleArchiveAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +117,14 @@ export default async function TicketDetailPage({
           </span>
         </div>
       </div>
+
+      {ticket.archivedAt && (
+        <p className="flex items-center gap-2 rounded-md bg-neutral-subtle px-3 py-2 text-[13px] text-muted-foreground">
+          <Archive className="size-4 shrink-0" />
+          Este chamado está arquivado: não aparece na fila nem entra nas
+          métricas. O conteúdo continua aqui.
+        </p>
+      )}
 
       <div className="grid gap-x-8 gap-y-7 lg:grid-cols-[1fr_17rem]">
         <div className="min-w-0 space-y-7">
@@ -222,6 +235,30 @@ export default async function TicketDetailPage({
                     aria-label="Vincular ao projeto"
                   >
                     <FolderKanban />
+                  </Button>
+                </form>
+              )}
+
+              {admin && (
+                <form action={toggleArchiveAction} className="border-t border-border pt-2">
+                  <input type="hidden" name="ticketId" value={ticket.id} />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-full justify-start px-2 text-[12px]"
+                  >
+                    {ticket.archivedAt ? (
+                      <>
+                        <ArchiveRestore />
+                        Devolver para a fila
+                      </>
+                    ) : (
+                      <>
+                        <Archive />
+                        Arquivar
+                      </>
+                    )}
                   </Button>
                 </form>
               )}

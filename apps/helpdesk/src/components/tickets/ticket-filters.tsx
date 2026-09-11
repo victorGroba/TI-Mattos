@@ -34,6 +34,7 @@ export interface ActiveFilters {
   atraso?: string;
   ordem?: string;
   periodo?: string;
+  arquivados?: string;
 }
 
 /**
@@ -181,6 +182,18 @@ export function TicketFilters({
             {SORT_LABELS[s]}
           </option>
         ))}
+      </Select>
+
+      <Select
+        name="arquivados"
+        defaultValue={active.arquivados ?? ""}
+        onChange={submit}
+        aria-label="Arquivados"
+        className="w-auto min-w-[8rem]"
+      >
+        <option value="">Ativos</option>
+        <option value="1">Incluir arquivados</option>
+        <option value="so">Só arquivados</option>
       </Select>
 
       {active.atraso && <input type="hidden" name="atraso" value={active.atraso} />}

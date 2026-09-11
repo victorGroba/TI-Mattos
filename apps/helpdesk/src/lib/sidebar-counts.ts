@@ -35,7 +35,7 @@ export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts
         })
       : Promise.resolve(0),
     prisma.ticket.count({
-      where: { requesterId: user.id, status: { in: activeStatuses } },
+      where: { requesterId: user.id, status: { in: activeStatuses }, archivedAt: null },
     }),
     admin
       ? prisma.project.count({ where: { status: { in: ["PLANNING", "ACTIVE"] } } })

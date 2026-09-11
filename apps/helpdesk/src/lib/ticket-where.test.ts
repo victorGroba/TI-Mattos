@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTicketWhere } from "./ticket-where";
+import { buildTicketWhere, parseArchived } from "./ticket-where";
 import type { SessionUser } from "./rbac";
 
 const comum: SessionUser = {
@@ -79,4 +79,41 @@ test("sem responsável tem precedência sobre responsável específico", () => {
 test("busca em branco não gera cláusula", () => {
   const where = buildTicketWhere(admin, { search: "   " });
   assert.equal(where.AND, undefined);
+});
+
+// ---------- Arquivamento ----------
+//
+// Arquivar tira o chamado da vista sem apagar nada. O filtro mora na montagem
+// única do `where`, e não em cada tela, para não haver rota por onde escapar.
+
+test("por padrão, arquivados ficam de fora", () => {
+  const where = buildTicketWhere(admin, {});
+  assert.equal(where.archivedAt, null);
+});
+
+test("modo 'todos' não filtra por arquivamento", () => {
+  const where = buildTicketWhere(admin, { archived: "todos" });
+  assert.equal("archivedAt" in where, false, "não deve haver cláusula nenhuma");
+});
+
+test("modo 'somente' traz apenas os arquivados", () => {
+  const where = buildTicketWhere(admin, { archived: "somente" });
+  assert.deepEqual(where.archivedAt, { not: null });
+});
+
+test("o arquivamento não desfaz o recorte de visibilidade", () => {
+  // Um usuário comum consultando arquivados continua vendo só o que é dele.
+  const where = buildTicketWhere(comum, { archived: "somente" });
+  assert.deepEqual(where.archivedAt, { not: null });
+  assert.deepEqual(where.AND, [
+    { OR: [{ requesterId: 7 }, { watchers: { some: { userId: 7 } } }] },
+  ]);
+});
+
+test("parseArchived aceita só os valores conhecidos", () => {
+  assert.equal(parseArchived(undefined), "ativos");
+  assert.equal(parseArchived(""), "ativos");
+  assert.equal(parseArchived("1"), "todos");
+  assert.equal(parseArchived("so"), "somente");
+  assert.equal(parseArchived("qualquer-lixo"), "ativos");
 });

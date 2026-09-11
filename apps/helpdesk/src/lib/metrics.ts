@@ -19,8 +19,12 @@ export interface MetricsFilter {
   projectId?: number;
 }
 
+/** Arquivados ficam fora de toda métrica — é o objetivo do arquivamento. */
+const ATIVO = { archivedAt: null } as const;
+
 function periodWhere(filter: MetricsFilter) {
   return {
+    ...ATIVO,
     createdAt: { gte: filter.from, lte: filter.to },
     ...(filter.teamId ? { teamId: filter.teamId } : {}),
     ...(filter.type ? { type: filter.type } : {}),
@@ -45,6 +49,7 @@ export interface Overview {
 
 export async function getOverview(filter: MetricsFilter): Promise<Overview> {
   const scope = {
+    ...ATIVO,
     ...(filter.teamId ? { teamId: filter.teamId } : {}),
     ...(filter.type ? { type: filter.type } : {}),
     ...(filter.projectId ? { projectId: filter.projectId } : {}),
@@ -120,6 +125,7 @@ export async function getOverview(filter: MetricsFilter): Promise<Overview> {
 async function getMedianResolution(filter: MetricsFilter): Promise<number | null> {
   const rows = await prisma.ticket.findMany({
     where: {
+      ...ATIVO,
       resolvedAt: { gte: filter.from, lte: filter.to },
       resolutionMinutes: { not: null },
       ...(filter.teamId ? { teamId: filter.teamId } : {}),
@@ -148,6 +154,7 @@ export async function getBacklogByStatus(filter: MetricsFilter) {
   const rows = await prisma.ticket.groupBy({
     by: ["status"],
     where: {
+      ...ATIVO,
       status: { in: activeStatuses },
       ...(filter.teamId ? { teamId: filter.teamId } : {}),
       ...(filter.type ? { type: filter.type } : {}),
@@ -162,6 +169,7 @@ export async function getBacklogByPriority(filter: MetricsFilter) {
   const rows = await prisma.ticket.groupBy({
     by: ["priority"],
     where: {
+      ...ATIVO,
       status: { in: activeStatuses },
       ...(filter.teamId ? { teamId: filter.teamId } : {}),
     },
@@ -181,12 +189,12 @@ export async function getTeamPerformance(filter: MetricsFilter) {
     }),
     prisma.ticket.groupBy({
       by: ["teamId"],
-      where: { status: { in: activeStatuses } },
+      where: { ...ATIVO, status: { in: activeStatuses } },
       _count: { _all: true },
     }),
     prisma.ticket.groupBy({
       by: ["teamId"],
-      where: { resolvedAt: { gte: filter.from, lte: filter.to } },
+      where: { ...ATIVO, resolvedAt: { gte: filter.from, lte: filter.to } },
       _count: { _all: true },
       _avg: { resolutionMinutes: true },
     }),
@@ -216,11 +224,11 @@ export async function getThroughput(filter: MetricsFilter) {
 
   const [created, resolved] = await Promise.all([
     prisma.ticket.findMany({
-      where: { ...scope, createdAt: { gte: filter.from, lte: filter.to } },
+      where: { ...ATIVO, ...scope, createdAt: { gte: filter.from, lte: filter.to } },
       select: { createdAt: true },
     }),
     prisma.ticket.findMany({
-      where: { ...scope, resolvedAt: { gte: filter.from, lte: filter.to } },
+      where: { ...ATIVO, ...scope, resolvedAt: { gte: filter.from, lte: filter.to } },
       select: { resolvedAt: true },
     }),
   ]);
@@ -260,7 +268,10 @@ export async function getTimeByStatus(filter: MetricsFilter) {
     where: {
       endedAt: { not: null },
       startedAt: { gte: filter.from, lte: filter.to },
-      ...(filter.teamId ? { ticket: { teamId: filter.teamId } } : {}),
+      ticket: {
+        ...ATIVO,
+        ...(filter.teamId ? { teamId: filter.teamId } : {}),
+      },
     },
     _avg: { businessMinutes: true },
     _sum: { businessMinutes: true },
@@ -281,6 +292,7 @@ export async function getTimeByStatus(filter: MetricsFilter) {
 export async function getOldestOpen(limit = 5, teamId?: number) {
   return prisma.ticket.findMany({
     where: {
+      ...ATIVO,
       status: { in: activeStatuses },
       ...(teamId ? { teamId } : {}),
     },
@@ -306,12 +318,13 @@ export async function getAgentWorkload(filter: MetricsFilter) {
   const [open, resolved] = await Promise.all([
     prisma.ticket.groupBy({
       by: ["assigneeId"],
-      where: { status: { in: activeStatuses }, assigneeId: { not: null } },
+      where: { ...ATIVO, status: { in: activeStatuses }, assigneeId: { not: null } },
       _count: { _all: true },
     }),
     prisma.ticket.groupBy({
       by: ["assigneeId"],
       where: {
+        ...ATIVO,
         resolvedAt: { gte: filter.from, lte: filter.to },
         assigneeId: { not: null },
       },

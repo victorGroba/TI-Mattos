@@ -211,6 +211,25 @@ Sem `CRON_SECRET` definido, as duas rotas respondem 503 e ficam desligadas —
 um endpoint público que dispara e-mail para todos os administradores seria um
 amplificador de spam.
 
+## Arquivar histórico antigo
+
+Arquivar tira o chamado da fila, do painel e das métricas **sem apagar nada**.
+Serve para o histórico migrado do sistema antigo parar de distorcer as médias
+de tempo de entrega da operação nova.
+
+Confira primeiro o que sairia:
+
+```bash
+docker compose -f docker-compose.v2.yml --env-file .env.v2   run --rm migrate npx tsx scripts/archive-old-tickets.ts 2026-09-01 --dry-run
+```
+
+E então aplique (mesmo comando sem `--dry-run`). Para reverter tudo de uma vez,
+acrescente `--desfazer`; para devolver um chamado específico, há um botão na
+própria tela dele.
+
+Os arquivados continuam acessíveis pela URL direta e pelo filtro "Arquivados"
+na fila.
+
 ## Atualizações seguintes
 
 Aí sim é simples:
