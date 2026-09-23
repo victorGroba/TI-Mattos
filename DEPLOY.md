@@ -236,9 +236,22 @@ Aí sim é simples:
 
 ```bash
 cd /var/www/helpdesk && git pull
-docker compose -f docker-compose.v2.yml --env-file .env.v2 \
-  run --rm migrate npx prisma migrate deploy
+/usr/local/bin/backup-helpdesk
 docker compose -f docker-compose.v2.yml --env-file .env.v2 up -d --build
+```
+
+O `up --build` já aplica as migrations: o serviço `migrate` roda
+`prisma migrate deploy` com a imagem recém-construída, e o app só sobe se ele
+terminar com sucesso. Não rode `run --rm migrate` antes do `--build` — ele usa
+a imagem **anterior**, com as migrations antigas, e responde "No pending
+migrations" mesmo quando há migration nova no código.
+
+O backup antes do deploy é o ponto de volta se uma migration der errado.
+
+Para conferir o que foi aplicado:
+
+```bash
+docker logs helpdesk_migrate 2>&1 | grep -iE "applied|No pending"
 ```
 
 ## Desligar o sistema antigo (quando tiver certeza)
