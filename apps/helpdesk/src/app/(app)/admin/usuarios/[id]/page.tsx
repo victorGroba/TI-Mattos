@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ResetPasswordForm } from "@/components/admin/reset-password-form";
+import { AssetTypeIcon, TermStatusBadge } from "@/components/inventory/asset-visuals";
 import { UserForm } from "@/components/admin/user-form";
 import { PageHeader } from "@/components/ui/misc";
 import { Section } from "@/components/ui/section";
 import { formatDateTime } from "@/lib/format";
+import { assetName } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,24 @@ export default async function EditUserPage({
         createdAt: true,
         passwordHash: true,
         _count: { select: { assignedTickets: true, requestedTickets: true } },
+        assets: {
+          where: { status: { not: "RETIRED" } },
+          orderBy: { tag: "asc" },
+          select: {
+            id: true,
+            tag: true,
+            type: true,
+            hostname: true,
+            brand: true,
+            model: true,
+            terms: {
+              where: { userId, status: { in: ["PENDING", "SIGNED"] } },
+              select: { status: true },
+              orderBy: { issuedAt: "desc" },
+              take: 1,
+            },
+          },
+        },
       },
     }),
     prisma.team.findMany({
@@ -92,6 +112,39 @@ export default async function EditUserPage({
           </p>
         )}
         <ResetPasswordForm userId={user.id} />
+      </Section>
+
+      <Section
+        title={`Equipamentos (${user.assets.length})`}
+        action={
+          <Link href="/inventario/novo" className="text-[12px] text-primary hover:underline">
+            Cadastrar
+          </Link>
+        }
+      >
+        {user.assets.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">Nenhum equipamento no nome desta pessoa.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {user.assets.map((a) => (
+              <li key={a.id}>
+                <Link
+                  href={`/inventario/${a.id}`}
+                  className="flex items-center gap-2.5 py-2 text-[13px] hover:text-primary"
+                >
+                  <AssetTypeIcon type={a.type} className="size-4 shrink-0 text-subtle-foreground" />
+                  <span className="font-mono text-[12px] text-muted-foreground">{a.tag}</span>
+                  <span className="min-w-0 flex-1 truncate">{assetName(a)}</span>
+                  {a.terms[0] ? (
+                    <TermStatusBadge status={a.terms[0].status} />
+                  ) : (
+                    <span className="text-[11px] text-warning">Sem termo</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section title="Atividade">

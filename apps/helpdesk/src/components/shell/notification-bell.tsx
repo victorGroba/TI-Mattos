@@ -26,6 +26,7 @@ interface Item {
   lida: boolean;
   createdAt: string;
   ticketId: number | null;
+  link: string | null;
 }
 
 const INTERVALO_MS = 45_000;
@@ -136,7 +137,8 @@ export function NotificationBell({ inicial = 0 }: { inicial?: number }) {
                     type="button"
                     onClick={() => {
                       void marcar(item.id);
-                      if (item.ticketId) router.push(`/chamados/${item.ticketId}`);
+                      if (item.link) router.push(item.link);
+                      else if (item.ticketId) router.push(`/chamados/${item.ticketId}`);
                     }}
                     className="flex w-full gap-2 rounded px-2.5 py-2 text-left transition-colors hover:bg-surface-muted"
                   >

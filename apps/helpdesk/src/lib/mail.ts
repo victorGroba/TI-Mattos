@@ -154,5 +154,9 @@ export async function verifyMail(): Promise<{ ok: boolean; erro?: string }> {
 }
 
 export function ticketUrl(ticketId: number): string {
-  return `${env.APP_URL.replace(/\/$/, "")}/chamados/${ticketId}`;
+  return appUrl(`/chamados/${ticketId}`);
+}
+
+export function appUrl(path: string): string {
+  return `${env.APP_URL.replace(/\/$/, "")}${path}`;
 }

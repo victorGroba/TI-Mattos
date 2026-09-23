@@ -1,9 +1,12 @@
 import type {
+  AssetStatus,
+  AssetType,
   Priority,
   ProjectStatus,
   Role,
   TicketSource,
   TicketStatus,
+  TermStatus,
   TicketType,
 } from "@/generated/prisma/enums";
 
@@ -176,3 +179,60 @@ export const slaTones = {
   breached: "danger",
   none: "neutral",
 } as const satisfies Record<string, Tone>;
+
+// ---------- Inventário ----------
+
+export const assetTypeLabels: Record<AssetType, string> = {
+  DESKTOP: "Computador",
+  NOTEBOOK: "Notebook",
+  MONITOR: "Monitor",
+  PRINTER: "Impressora",
+  PHONE: "Celular",
+  TABLET: "Tablet",
+  NETWORK: "Rede",
+  OTHER: "Outro",
+};
+
+export const assetTypeOrder: AssetType[] = [
+  "DESKTOP",
+  "NOTEBOOK",
+  "MONITOR",
+  "PRINTER",
+  "PHONE",
+  "TABLET",
+  "NETWORK",
+  "OTHER",
+];
+
+/** Tipos que têm sistema operacional e configuração de hardware a registrar. */
+export const computerTypes: AssetType[] = ["DESKTOP", "NOTEBOOK"];
+
+export const assetStatusLabels: Record<AssetStatus, string> = {
+  IN_USE: "Em uso",
+  IN_STOCK: "Em estoque",
+  MAINTENANCE: "Em manutenção",
+  RETIRED: "Baixado",
+};
+
+export const assetStatusTones: Record<AssetStatus, Tone> = {
+  IN_USE: "success",
+  IN_STOCK: "info",
+  MAINTENANCE: "warning",
+  RETIRED: "neutral",
+};
+
+export const assetStatusOrder: AssetStatus[] = ["IN_USE", "IN_STOCK", "MAINTENANCE", "RETIRED"];
+
+export const termStatusLabels: Record<TermStatus, string> = {
+  PENDING: "Aguardando assinatura",
+  SIGNED: "Assinado",
+  CANCELLED: "Cancelado",
+  RETURNED: "Encerrado",
+};
+
+export const termStatusTones: Record<TermStatus, Tone> = {
+  PENDING: "warning",
+  SIGNED: "success",
+  CANCELLED: "neutral",
+  RETURNED: "neutral",
+};

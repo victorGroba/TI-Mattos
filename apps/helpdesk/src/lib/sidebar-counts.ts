@@ -22,7 +22,7 @@ export interface SidebarCounts {
 export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts> {
   const admin = isAdmin(user.role);
 
-  const [queue, overdue, mine, projects, unread] = await Promise.all([
+  const [queue, overdue, mine, projects, unread, termsToSign] = await Promise.all([
     admin
       ? prisma.ticket.count({ where: buildTicketWhere(user, { onlyOpen: true }) })
       : Promise.resolve(0),
@@ -41,6 +41,9 @@ export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts
       ? prisma.project.count({ where: { status: { in: ["PLANNING", "ACTIVE"] } } })
       : Promise.resolve(0),
     prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+    // Termo esperando a assinatura da própria pessoa: é a única pendência
+    // que "Meus equipamentos" tem, então é o número que o item mostra.
+    prisma.responsibilityTerm.count({ where: { userId: user.id, status: "PENDING" } }),
   ]);
 
   return {
@@ -48,6 +51,7 @@ export async function getSidebarCounts(user: SessionUser): Promise<SidebarCounts
       "/chamados": queue,
       "/meus-chamados": mine,
       "/projetos": projects,
+      "/meus-equipamentos": termsToSign,
     },
     alerts: {
       "/chamados": overdue > 0,

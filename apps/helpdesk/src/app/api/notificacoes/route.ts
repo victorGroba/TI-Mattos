@@ -27,6 +27,7 @@ export async function GET() {
         readAt: true,
         createdAt: true,
         ticketId: true,
+        link: true,
       },
     }),
     prisma.notification.count({ where: { userId: user.id, readAt: null } }),
@@ -42,6 +43,7 @@ export async function GET() {
       lida: n.readAt !== null,
       createdAt: n.createdAt.toISOString(),
       ticketId: n.ticketId,
+      link: n.link,
     })),
   });
 }

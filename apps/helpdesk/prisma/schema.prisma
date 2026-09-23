@@ -98,6 +98,45 @@ enum WebhookDeliveryStatus {
   ABANDONED
 }
 
+enum AssetType {
+  DESKTOP
+  NOTEBOOK
+  MONITOR
+  PRINTER
+  PHONE
+  TABLET
+  NETWORK // roteador, switch, access point
+  OTHER
+}
+
+enum AssetStatus {
+  IN_USE // com um colaborador
+  IN_STOCK // guardado, disponível para entrega
+  MAINTENANCE // em conserto, com ou sem responsável
+  RETIRED // baixado: descartado, vendido, perdido
+}
+
+enum AssetEventType {
+  CREATED
+  UPDATED
+  ASSIGNED
+  RETURNED
+  STATUS_CHANGED
+  CHECKED // conferido no inventário
+  PHOTO_ADDED
+  PHOTO_REMOVED
+  TERM_ISSUED
+  TERM_SIGNED
+  TERM_CANCELLED
+}
+
+enum TermStatus {
+  PENDING // emitido, aguardando a assinatura do colaborador
+  SIGNED // assinado e vigente
+  CANCELLED // substituído antes de ser assinado
+  RETURNED // assinado e encerrado com a devolução do equipamento
+}
+
 // ===================== PESSOAS E ESTRUTURA =====================
 
 model Team {
@@ -115,6 +154,7 @@ model Team {
   tickets    Ticket[]
   categories Category[]
   projects   Project[]
+  assets     Asset[]
 
   @@index([active])
   @@map("teams")
@@ -151,6 +191,12 @@ model User {
   notifications    Notification[]
   ownedProjects    Project[]       @relation("ProjectOwner")
   apiTokens        ApiToken[]
+
+  assets      Asset[]              @relation("AssetAssignee")
+  assetEvents AssetEvent[]
+  assetPhotos AssetPhoto[]
+  terms       ResponsibilityTerm[] @relation("TermSigner")
+  issuedTerms ResponsibilityTerm[] @relation("TermIssuer")
 
   @@index([teamId])
   @@index([role, active])
@@ -232,10 +278,10 @@ model Ticket {
   requesterId Int
   assigneeId  Int?
 
-  source TicketSource @default(WEB)
+  source      TicketSource @default(WEB)
   // Rastreia a origem quando o ticket nasce fora da UI (id da mensagem de
   // e-mail, execução do n8n, etc.) e evita duplicidade em reprocessamento.
-  externalRef String? @unique
+  externalRef String?      @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -323,15 +369,15 @@ model TicketEvent {
 // transforma "tempo médio em triagem" numa agregação simples em vez de uma
 // reconstrução do log de eventos.
 model TicketStatusPeriod {
-  id       Int          @id @default(autoincrement())
-  ticketId Int
-  status   TicketStatus
+  id         Int          @id @default(autoincrement())
+  ticketId   Int
+  status     TicketStatus
   // Denormalizado para permitir cortar por atendente sem join no ticket,
   // já que o responsável pode mudar ao longo do ciclo de vida.
   assigneeId Int?
 
-  startedAt DateTime
-  endedAt   DateTime?
+  startedAt       DateTime
+  endedAt         DateTime?
   // Duração corrida e duração em horário útil. Nulas enquanto o período
   // está aberto.
   minutes         Int?
@@ -365,7 +411,7 @@ model Comment {
 }
 
 model Attachment {
-  id           Int     @id @default(autoincrement())
+  id           Int    @id @default(autoincrement())
   ticketId     Int?
   commentId    Int?
   uploadedById Int?
@@ -440,7 +486,7 @@ model SlaPolicy {
   businessHours Json
   // ["2026-12-25", "2027-01-01"] — feriados no fuso de timezone
   holidays      Json?
-  timezone      String  @default("America/Sao_Paulo")
+  timezone      String @default("America/Sao_Paulo")
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -511,7 +557,7 @@ model WebhookDelivery {
   lastError      String?
   nextRetryAt    DateTime?
   deliveredAt    DateTime?
-  createdAt      DateTime          @default(now())
+  createdAt      DateTime  @default(now())
 
   endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 
@@ -527,6 +573,9 @@ model Notification {
   type     String
   title    String
   body     String?
+  // Destino do clique quando o aviso não é de chamado (ex.: termo para
+  // assinar). Com ticketId e sem link, o sino abre o chamado.
+  link     String?
 
   readAt    DateTime?
   createdAt DateTime  @default(now())
@@ -545,4 +594,138 @@ model Setting {
   updatedAt DateTime @updatedAt
 
   @@map("settings")
+}
+
+// ===================== INVENTÁRIO =====================
+
+// Um equipamento da empresa. Os campos de configuração são texto livre de
+// propósito: são copiados do que aparece na etiqueta ou nas propriedades do
+// sistema ("16 GB DDR4", "SSD 256 GB"), e normalizá-los em números só
+// obrigaria o suporte a converter na hora do mapeamento.
+model Asset {
+  id Int @id @default(autoincrement())
+
+  // Número de patrimônio, o que vai na etiqueta física. Gerado como LM-0001
+  // quando o cadastro não informa um.
+  tag    String      @unique
+  type   AssetType
+  status AssetStatus @default(IN_STOCK)
+
+  hostname     String? // nome na rede, ex.: RECEPCAO-01
+  brand        String?
+  model        String?
+  serialNumber String?
+
+  processor       String?
+  memory          String?
+  storage         String?
+  operatingSystem String?
+  ipAddress       String?
+  macAddress      String?
+  // ID do AnyDesk/TeamViewer — é o que o suporte procura na hora de atender.
+  remoteAccess    String?
+
+  teamId     Int?
+  location   String? // sala, mesa, andar
+  assigneeId Int?
+
+  purchasedAt   DateTime?
+  warrantyUntil DateTime?
+  notes         String?
+
+  // Última vez que alguém do suporte viu o equipamento no lugar. É o que
+  // separa um inventário vivo de uma planilha que ninguém confere.
+  lastCheckedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team     Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  assignee User? @relation("AssetAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  photos AssetPhoto[]
+  events AssetEvent[]
+  terms  ResponsibilityTerm[]
+
+  @@index([status])
+  @@index([type])
+  @@index([teamId])
+  @@index([assigneeId])
+  @@map("assets")
+}
+
+// Fotos do equipamento. Separadas de Attachment porque a regra de quem pode
+// ver é outra (o responsável pela máquina, não quem abriu o chamado).
+model AssetPhoto {
+  id           Int    @id @default(autoincrement())
+  assetId      Int
+  uploadedById Int?
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String
+
+  createdAt DateTime @default(now())
+
+  asset      Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([assetId, createdAt])
+  @@map("asset_photos")
+}
+
+// Histórico do equipamento: quem cadastrou, quem recebeu, quando voltou.
+model AssetEvent {
+  id        Int            @id @default(autoincrement())
+  assetId   Int
+  actorId   Int?
+  type      AssetEventType
+  fromValue String?
+  toValue   String?
+  note      String?
+  createdAt DateTime       @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, createdAt])
+  @@map("asset_events")
+}
+
+// Termo de responsabilidade assinado eletronicamente.
+//
+// O texto é gravado inteiro no momento da emissão, com os dados do
+// equipamento embutidos. Editar o modelo ou o cadastro depois não altera um
+// termo já emitido — o que a pessoa assinou é exatamente o que está aqui, e
+// bodyHash permite provar isso.
+model ResponsibilityTerm {
+  id         Int        @id @default(autoincrement())
+  assetId    Int
+  userId     Int
+  issuedById Int?
+  status     TermStatus @default(PENDING)
+
+  body     String
+  bodyHash String // SHA-256 do body, conferido na assinatura
+
+  issuedAt DateTime @default(now())
+
+  // Evidências da assinatura.
+  signedAt        DateTime?
+  signatureImage  String? // PNG em data URL, desenhado pelo colaborador
+  signerIp        String?
+  signerUserAgent String?
+
+  closedAt DateTime? // cancelado ou encerrado pela devolução
+
+  // Restrict: termo assinado é prova. Nem apagar o equipamento nem apagar a
+  // pessoa pode levá-lo junto — o caminho é baixar/desativar, não excluir.
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  user     User  @relation("TermSigner", fields: [userId], references: [id], onDelete: Restrict)
+  issuedBy User? @relation("TermIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([assetId, issuedAt])
+  @@index([status])
+  @@map("responsibility_terms")
 }

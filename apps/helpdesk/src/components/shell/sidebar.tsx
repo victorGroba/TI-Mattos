@@ -37,7 +37,7 @@ export function Sidebar({
       {/* Barra superior — só no mobile, onde a sidebar vira gaveta. No desktop
           não existe cabeçalho: tudo que ficaria nele mora na própria coluna,
           o que devolve uma faixa inteira de altura ao conteúdo. */}
-      <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2 lg:hidden">
+      <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2 lg:hidden print:hidden">
         <Button
           variant="ghost"
           size="icon"
@@ -69,7 +69,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-52 shrink-0 flex-col border-r border-border bg-surface transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-52 shrink-0 flex-col border-r border-border bg-surface transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 print:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
